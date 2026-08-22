@@ -1,0 +1,216 @@
+/* DataTable — fully theme-aware via CSS vars */
+
+/* ── Wrapper ── */
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  width: 100%;
+}
+
+/* ── Top bar ── */
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* Search */
+.searchWrap { position: relative; width: 100%; max-width: 280px; }
+
+.searchIcon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.searchInput {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 1rem 0.55rem 2.25rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.searchInput::placeholder { color: var(--text-muted); }
+.searchInput:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Export buttons */
+.exportBtns { display: flex; gap: 0.5rem; }
+
+.exportBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid;
+}
+
+.exportExcel {
+  color: #16a34a;
+  border-color: #16a34a;
+  background: transparent;
+}
+.exportExcel:hover { background: rgba(22, 163, 74, 0.07); }
+
+.exportPdf {
+  color: #dc2626;
+  border-color: #dc2626;
+  background: transparent;
+}
+.exportPdf:hover { background: rgba(220, 38, 38, 0.07); }
+
+/* ── Table Card ── */
+.tableCard {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  min-width: 600px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+/* ── Header ── */
+.thead { background: var(--bg-base); }
+
+.th {
+  padding: 0.85rem 1.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.thSortable { cursor: pointer; }
+.thSortable:hover { background: var(--bg-hover, rgba(0,0,0,0.03)); }
+.thRight { text-align: right; }
+
+.thContent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* ── Rows ── */
+.tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.12s ease;
+}
+.tr:last-child { border-bottom: none; }
+.tr:hover { background: var(--bg-base); }
+
+.trClickable { cursor: pointer; }
+
+.td {
+  padding: 0.9rem 1.25rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.tdRight { text-align: right; }
+
+.empty {
+  padding: 3rem 1.25rem !important;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ── Pagination ── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.pageInfo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.pageSelect {
+  padding: 0.35rem 2rem 0.35rem 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  appearance: auto;
+}
+.pageSelect:focus { border-color: var(--brand-primary); }
+
+.pageNav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pageBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.pageBtn:hover:not(:disabled) {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+.pageBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.pageBtnActive {
+  background: var(--brand-primary) !important;
+  color: white !important;
+  border-color: var(--brand-primary) !important;
+}
+
+.pageBtnRound { border-radius: 8px; }

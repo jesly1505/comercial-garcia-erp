@@ -1,0 +1,113 @@
+/* RoleFormModal styles */
+.form { display: flex; flex-direction: column; gap: 1.25rem; }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+.field { display: flex; flex-direction: column; gap: 0.4rem; }
+.label { font-size: 0.82rem; font-weight: 500; color: var(--text-secondary); }
+.req { color: #ef4444; margin-left: 2px; }
+
+.input {
+  padding: 0.6rem 0.85rem; border-radius: 9px;
+  border: 1px solid var(--border-color); background: var(--bg-base);
+  color: var(--text-primary); font-size: 0.9rem; outline: none; width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input:focus { border-color: var(--brand-primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.input:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Matrix */
+.matrixWrap { margin-top: 0.5rem; }
+
+.matrixHead {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--brand-primary);
+  margin-bottom: 0.875rem; padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.matrixHint {
+  font-size: 0.72rem; font-weight: 400; text-transform: none;
+  letter-spacing: 0; color: var(--text-muted); margin-left: 0.25rem;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+}
+
+.permTable { width: 100%; border-collapse: collapse; }
+
+.permTable thead { background: var(--bg-base); }
+.permTable thead tr { border-bottom: 1px solid var(--border-color); }
+
+.moduleCol {
+  padding: 0.85rem 1rem; text-align: left;
+  font-size: 0.8rem; font-weight: 700;
+  color: var(--text-muted); min-width: 140px;
+  border-right: 1px solid var(--border-color);
+}
+
+.actionCol {
+  padding: 0.5rem 0.25rem; text-align: center;
+  font-size: 0.78rem; min-width: 72px;
+}
+
+.headerBtn {
+  background: transparent; border: none; cursor: pointer;
+  color: var(--text-secondary); font-size: 0.76rem; font-weight: 600;
+  padding: 0.3rem 0.5rem; border-radius: 6px;
+  transition: all 0.15s; white-space: nowrap;
+}
+.headerBtn:hover:not(:disabled) { color: var(--brand-primary); background: rgba(37,99,235,0.06); }
+.headerBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.permRow {
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.12s;
+}
+.permRow:last-child { border-bottom: none; }
+.permRow:hover { background: var(--bg-base); }
+
+.moduleCell {
+  padding: 0.7rem 1rem;
+  border-right: 1px solid var(--border-color);
+}
+
+.moduleBtn {
+  background: transparent; border: none; cursor: pointer;
+  font-size: 0.85rem; font-weight: 500;
+  color: var(--text-primary); text-align: left; width: 100%;
+  padding: 0; transition: color 0.15s;
+}
+.moduleBtn:hover:not(:disabled) { color: var(--brand-primary); }
+.moduleBtn:disabled { cursor: not-allowed; }
+
+.checkCell { padding: 0.7rem 0.5rem; text-align: center; }
+
+.checkbox {
+  width: 16px; height: 16px; cursor: pointer;
+  accent-color: var(--brand-primary);
+}
+.checkbox:disabled { cursor: not-allowed; opacity: 0.5; }
+
+/* Footer buttons */
+.btnPrimary {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.6rem 1.25rem; border-radius: 10px; border: none;
+  background: var(--brand-primary); color: white;
+  font-size: 0.9rem; font-weight: 600; cursor: pointer;
+  transition: filter 0.15s;
+}
+.btnPrimary:hover:not(:disabled) { filter: brightness(1.1); }
+.btnPrimary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btnCancel {
+  padding: 0.6rem 1.25rem; border-radius: 10px;
+  border: 1px solid var(--border-color); background: transparent;
+  color: var(--text-primary); font-size: 0.9rem; font-weight: 500;
+  cursor: pointer; transition: background 0.15s;
+}
+.btnCancel:hover { background: var(--bg-base); }

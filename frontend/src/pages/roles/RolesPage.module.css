@@ -1,0 +1,111 @@
+/* RolesPage — theme-aware styles */
+
+.page { padding: 2rem; }
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.title { font-size: 1.75rem; font-weight: 700; color: var(--text-primary); margin: 0 0 0.2rem; }
+.subtitle { font-size: 0.875rem; color: var(--text-muted); margin: 0; }
+
+.btnPrimary {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.6rem 1.25rem; background: var(--brand-primary); color: white;
+  border: none; border-radius: 10px; font-size: 0.9rem; font-weight: 600;
+  cursor: pointer; transition: filter 0.15s; white-space: nowrap;
+}
+.btnPrimary:hover { filter: brightness(1.1); }
+
+.tableWrap {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 1.25rem;
+}
+
+.loading {
+  display: flex; align-items: center; justify-content: center;
+  height: 200px; color: var(--text-muted); font-size: 0.9rem;
+}
+
+/* ── Role cell ── */
+.roleCell { display: flex; align-items: center; gap: 0.75rem; }
+
+.roleIcon {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.roleName { font-weight: 700; color: var(--text-primary); font-size: 0.9rem; }
+.roleDesc { font-size: 0.77rem; color: var(--text-muted); margin-top: 1px; }
+
+.userCount { font-size: 0.85rem; color: var(--text-muted); }
+
+/* ── Badges ── */
+.badge {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.28rem 0.7rem; border-radius: 9999px;
+  font-size: 0.74rem; font-weight: 700; letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.badgeBlue {
+  background: rgba(59,130,246,0.1); color: #2563eb;
+  display: inline-block; padding: 0.28rem 0.7rem;
+  border-radius: 9999px; font-size: 0.78rem; font-weight: 600;
+}
+
+.badgeActive { background: rgba(16,185,129,0.12); color: #059669; }
+.badgeInactive { background: rgba(239,68,68,0.12); color: #dc2626; }
+
+/* ── Action buttons ── */
+.actionBtns { display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem; }
+
+.actionBtn {
+  width: 34px; height: 34px; border-radius: 9px;
+  border: 1px solid var(--border-color); background: transparent;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.15s;
+  color: var(--text-muted);
+}
+
+.actionEdit:hover {
+  color: var(--brand-primary);
+  border-color: var(--brand-primary);
+  background: rgba(37,99,235,0.07);
+}
+
+.actionDelete:hover {
+  color: #dc2626;
+  border-color: #dc2626;
+  background: rgba(220,38,38,0.07);
+}
+
+/* Toggle — Deshabilitar */
+.actionDeactivate {
+  color: #d97706;
+  border-color: rgba(217,119,6,0.3);
+}
+.actionDeactivate:hover {
+  border-color: #d97706;
+  background: rgba(217,119,6,0.07);
+}
+
+/* Toggle — Habilitar */
+.actionActivate {
+  color: #059669;
+  border-color: rgba(5,150,105,0.3);
+}
+.actionActivate:hover {
+  border-color: #059669;
+  background: rgba(5,150,105,0.07);
+}

@@ -1,0 +1,435 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 1. SEGURIDAD Y AUDITORÍA
+// ==========================================
+
+model Role {
+  id              Int               @id @default(autoincrement())
+  name            String            @unique
+  description     String?           
+  isActive        Boolean           @default(true) @map("is_active")
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id              Int               @id @default(autoincrement())
+  code            String            @unique // ej. 'invoice.create'
+  description     String?           
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       Int
+  permissionId Int
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id                 Int                 @id @default(autoincrement())
+  roleId             Int                 @map("role_id")
+  firstName          String              @map("first_name") 
+  lastName           String              @map("last_name") 
+  username           String?             @unique
+  email              String              @unique 
+  passwordHash       String              @map("password_hash") 
+  isActive           Boolean             @default(true) @map("is_active")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  role               Role                @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  auditLogs          AuditLog[]
+  inventoryMovements InventoryMovement[]
+  invoices           Invoice[]
+  cashSessions       CashSession[]
+  notifications      Notification[]
+
+  @@index([roleId])
+  @@map("users")
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int?     @map("user_id")
+  action     String   
+  tableName  String   @map("table_name") 
+  recordId   Int?     @map("record_id")
+  description String? 
+  oldValues  String?  @map("old_values") // JSON as String for SQLite
+  newValues  String?  @map("new_values") // JSON as String for SQLite
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  title     String
+  message   String
+  type      String   // INFO, WARNING, SUCCESS, ERROR
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("notifications")
+}
+
+model CompanySettings {
+  id                 Int      @id @default(1)
+  companyName        String   @map("company_name") @default("Comercial García Reyes S.A.")
+  logoBase64         String?  @map("logo_base64")
+  address            String?
+  phone              String?
+  email              String?
+  currency           String   @default("C$")
+  timezone           String   @default("America/Managua")
+  dateFormat         String   @map("date_format") @default("DD/MM/YYYY")
+  
+  invoiceAutoNumber  Boolean  @map("invoice_auto_number") @default(true)
+  orderAutoNumber    Boolean  @map("order_auto_number") @default(true)
+  movementAutoNumber Boolean  @map("movement_auto_number") @default(true)
+  defaultMinStock    Int      @map("default_min_stock") @default(5)
+  theme              String   @default("light")
+  
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("company_settings")
+}
+
+// ==========================================
+// 2. ENTIDADES EXTERNAS
+// ==========================================
+
+model Customer {
+  id                 Int                 @id @default(autoincrement())
+  code               String              @unique @default(cuid())
+  firstName          String              @map("first_name")
+  lastName           String              @map("last_name")
+  company            String?
+  ruc                String?
+  documentNumber     String              @unique @map("document_number") // Cédula
+  phone              String?
+  whatsapp           String?
+  email              String?
+  address            String?
+  municipality       String?
+  department         String?
+  creditLimit        Float               @default(0) @map("credit_limit")
+  isActive           Boolean             @default(true) @map("is_active")
+  salesOrders        SalesOrder[]
+  specialOrders      SpecialOrder[]
+  invoices           Invoice[]
+  accountsReceivable AccountsReceivable[]
+
+  @@map("customers")
+}
+
+model Supplier {
+  id             Int             @id @default(autoincrement())
+  code           String          @unique @default(cuid())
+  name           String          
+  company        String?
+  contactName    String?         @map("contact_name")
+  phone          String?
+  email          String?
+  address        String?
+  ruc            String?         @unique
+  isActive       Boolean         @default(true) @map("is_active")
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+// ==========================================
+// 3. CATÁLOGO E INVENTARIO
+// ==========================================
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique 
+  products Product[]
+
+  @@map("categories")
+}
+
+model Brand {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique 
+  products Product[]
+
+  @@map("brands")
+}
+
+model Product {
+  id                 Int                   @id @default(autoincrement())
+  categoryId         Int                   @map("category_id")
+  brandId            Int?                  @map("brand_id")
+  sku                String                @unique 
+  name               String                
+  costPrice          Float                 @map("cost_price") 
+  salePrice          Float                 @map("sale_price") 
+  currentStock       Int                   @default(0) @map("current_stock")
+  minStock           Int                   @default(5) @map("min_stock")
+  unit               String                @default("UNIDAD")
+  imageUrl           String?               @map("image_url")
+  isActive           Boolean               @default(true) @map("is_active")
+  category           Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  brand              Brand?                @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  inventory          Inventory[]
+  inventoryMovements InventoryMovement[]
+  invoiceDetails     InvoiceDetail[]
+  purchaseOrderDetails PurchaseOrderDetail[]
+  salesOrderDetails  SalesOrderDetail[]
+
+  @@map("products")
+}
+
+model Warehouse {
+  id                 Int                 @id @default(autoincrement())
+  name               String              
+  inventory          Inventory[]
+  inventoryMovements InventoryMovement[]
+
+  @@map("warehouses")
+}
+
+model Inventory {
+  id          Int       @id @default(autoincrement())
+  productId   Int       @map("product_id")
+  warehouseId Int       @map("warehouse_id")
+  quantity    Int       @default(0)
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, warehouseId])
+  @@map("inventory")
+}
+
+model InventoryMovement {
+  id              Int       @id @default(autoincrement())
+  referenceNumber String?   @unique @map("reference_number")
+  productId       Int       @map("product_id")
+  warehouseId     Int       @map("warehouse_id")
+  userId          Int       @map("user_id")
+  movementType    String    @map("movement_type") 
+  quantity        Int
+  stockBefore     Int       @default(0) @map("stock_before")
+  stockAfter      Int       @default(0) @map("stock_after")
+  reason          String?
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouse       Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@map("inventory_movements")
+}
+
+// ==========================================
+// 4. FLUJO DE VENTAS Y FACTURACIÓN
+// ==========================================
+
+model SalesOrder {
+  id          Int       @id @default(autoincrement())
+  customerId  Int       @map("customer_id")
+  status      String    @default("PENDING") 
+  totalAmount Float     @map("total_amount") 
+  createdAt   DateTime  @default(now()) @map("created_at")
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  invoices    Invoice[]
+  details     SalesOrderDetail[]
+
+  @@map("sales_orders")
+}
+
+model SalesOrderDetail {
+  id           Int        @id @default(autoincrement())
+  salesOrderId Int        @map("sales_order_id")
+  productId    Int        @map("product_id")
+  quantity     Int
+  unitPrice    Float      @map("unit_price") 
+  subtotal     Float      
+  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("sales_order_details")
+}
+
+model SpecialOrder {
+  id             Int       @id @default(autoincrement())
+  customerId     Int       @map("customer_id")
+  description    String    
+  estimatedPrice Float?    @map("estimated_price") 
+  status         String    @default("REQUESTED") 
+  createdAt      DateTime  @default(now()) @map("created_at")
+  customer       Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@map("special_orders")
+}
+
+model Invoice {
+  id                 Int                  @id @default(autoincrement())
+  salesOrderId       Int?                 @map("sales_order_id")
+  customerId         Int                  @map("customer_id")
+  userId             Int                  @map("user_id")
+  invoiceNumber      String               @unique @map("invoice_number") 
+  totalAmount        Float                @map("total_amount") 
+  tax                Float                @default(0)
+  discount           Float                @default(0)
+  paymentMethod      String               @default("CONTADO") @map("payment_method")
+  status             String               @default("ACTIVA")
+  issueDate          DateTime             @default(now()) @map("issue_date")
+  salesOrder         SalesOrder?          @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
+  customer           Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  details            InvoiceDetail[]
+  accountsReceivable AccountsReceivable[]
+
+  @@map("invoices")
+}
+
+model InvoiceDetail {
+  id        Int     @id @default(autoincrement())
+  invoiceId Int     @map("invoice_id")
+  productId Int     @map("product_id")
+  quantity  Int
+  unitPrice Float   @map("unit_price") 
+  subtotal  Float   
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("invoice_details")
+}
+
+// ==========================================
+// 5. COMPRAS
+// ==========================================
+
+model PurchaseOrder {
+  id            Int                   @id @default(autoincrement())
+  supplierId    Int                   @map("supplier_id")
+  invoiceNumber String?               @map("invoice_number")
+  totalAmount   Float                 @map("total_amount") 
+  status        String                @default("PENDING") 
+  createdAt     DateTime              @default(now()) @map("created_at")
+  supplier      Supplier              @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  details       PurchaseOrderDetail[]
+  payments      Payment[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderDetail {
+  id              Int           @id @default(autoincrement())
+  purchaseOrderId Int           @map("purchase_order_id")
+  productId       Int           @map("product_id")
+  quantity        Int
+  unitCost        Float         @map("unit_cost") 
+  subtotal        Float         
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("purchase_order_details")
+}
+
+// ==========================================
+// 6. FINANZAS Y TESORERÍA
+// ==========================================
+
+model CashRegister {
+  id       Int           @id @default(autoincrement())
+  name     String        
+  isActive Boolean       @default(true) @map("is_active")
+  sessions CashSession[]
+
+  @@map("cash_registers")
+}
+
+model CashSession {
+  id             Int          @id @default(autoincrement())
+  cashRegisterId Int          @map("cash_register_id")
+  userId         Int          @map("user_id")
+  openingBalance Float        @map("opening_balance")
+  closingBalance Float?       @map("closing_balance") 
+  expectedBalance Float?      @map("expected_balance")
+  status         String       @default("OPEN")
+  openedAt       DateTime     @default(now()) @map("opened_at")
+  closedAt       DateTime?    @map("closed_at")
+  cashRegister   CashRegister @relation(fields: [cashRegisterId], references: [id], onDelete: Restrict)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  payments       Payment[]
+  movements      CashMovement[]
+
+  @@map("cash_sessions")
+}
+
+model CashMovement {
+  id            Int          @id @default(autoincrement())
+  cashSessionId Int          @map("cash_session_id")
+  type          String       // 'IN' or 'OUT'
+  amount        Float
+  description   String
+  createdAt     DateTime     @default(now()) @map("created_at")
+  cashSession   CashSession  @relation(fields: [cashSessionId], references: [id], onDelete: Cascade)
+
+  @@map("cash_movements")
+}
+
+model AccountsReceivable {
+  id         Int       @id @default(autoincrement())
+  customerId Int       @map("customer_id")
+  invoiceId  Int       @map("invoice_id")
+  totalDebt  Float     @map("total_debt") 
+  balance    Float     
+  status     String    @default("PENDING") 
+  dueDate    DateTime? @map("due_date")
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  invoice    Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  payments   Payment[]
+
+  @@map("accounts_receivable")
+}
+
+model Payment {
+  id                  Int                 @id @default(autoincrement())
+  accountReceivableId Int?                @map("account_receivable_id")
+  purchaseOrderId     Int?                @map("purchase_order_id")
+  cashSessionId       Int?                @map("cash_session_id")
+  amount              Float               
+  paymentMethod       String              @map("payment_method") 
+  paymentDate         DateTime            @default(now()) @map("payment_date")
+  accountReceivable   AccountsReceivable? @relation(fields: [accountReceivableId], references: [id], onDelete: SetNull)
+  purchaseOrder       PurchaseOrder?      @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  cashSession         CashSession?        @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+
+  @@map("payments")
+}
+
+// ==========================================
+// 7. REPORTES
+// ==========================================
+
+model ReportTemplate {
+  id     Int    @id @default(autoincrement())
+  name   String 
+  module String 
+  config String // JSON as string for SQLite
+
+  @@map("report_templates")
+}

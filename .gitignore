@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment variables & secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Databases & SQLite
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+*.sqlite3
+
+# Build & compiled outputs
+dist/
+dist-ssr/
+build/
+*.tsbuildinfo
+
+# Expo & React Native
+.expo/
+web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Uploads (opcional, almacenar archivos de prueba local)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.agents/
+.windsurf/
+
+# OS generated files
+.DS_Store
+Thumbs.db

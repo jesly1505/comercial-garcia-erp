@@ -18,6 +18,7 @@ import roleRoutes from './routes/role.routes';
 import auditRoutes from './routes/audit.routes';
 import settingsRoutes from './routes/settings.routes';
 import notificationRoutes from './routes/notification.routes';
+import quotationRoutes from './routes/quotation.routes';
 import { authenticateToken } from './middlewares/auth.middleware';
 import { setupSwagger } from './utils/swagger';
 import { startCronJobs } from './jobs/notification.cron';
@@ -56,6 +57,7 @@ app.use('/api/roles', roleRoutes); // Auth inside routes
 app.use('/api/audit', authenticateToken, auditRoutes);
 app.use('/api/settings', authenticateToken, settingsRoutes);
 app.use('/api/notifications', authenticateToken, notificationRoutes);
+app.use('/api/quotations', authenticateToken, quotationRoutes);
 
 // Documentación
 setupSwagger(app);

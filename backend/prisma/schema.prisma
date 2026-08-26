@@ -57,6 +57,7 @@ model User {
   invoices           Invoice[]
   cashSessions       CashSession[]
   notifications      Notification[]
+  quotations         Quotation[]
 
   @@index([roleId])
   @@map("users")
@@ -136,6 +137,7 @@ model Customer {
   specialOrders      SpecialOrder[]
   invoices           Invoice[]
   accountsReceivable AccountsReceivable[]
+  quotations         Quotation[]
 
   @@map("customers")
 }
@@ -196,6 +198,7 @@ model Product {
   invoiceDetails     InvoiceDetail[]
   purchaseOrderDetails PurchaseOrderDetail[]
   salesOrderDetails  SalesOrderDetail[]
+  quotationDetails   QuotationDetail[]
 
   @@map("products")
 }
@@ -242,8 +245,46 @@ model InventoryMovement {
 }
 
 // ==========================================
-// 4. FLUJO DE VENTAS Y FACTURACIÓN
+// 4. FLUJO DE VENTAS, COTIZACIONES Y FACTURACIÓN
 // ==========================================
+
+model Quotation {
+  id              Int               @id @default(autoincrement())
+  quotationNumber String            @unique @map("quotation_number")
+  customerId      Int               @map("customer_id")
+  userId          Int               @map("user_id")
+  status          String            @default("PENDIENTE") // PENDIENTE, APROBADA, RECHAZADA, FACTURADA, VENCIDA, CANCELADA
+  subtotal        Float             @default(0)
+  tax             Float             @default(0)
+  discount        Float             @default(0)
+  totalAmount     Float             @map("total_amount")
+  validUntil      DateTime?         @map("valid_until")
+  notes           String?
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  customer        Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  user            User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  details         QuotationDetail[]
+  invoices        Invoice[]
+
+  @@map("quotations")
+}
+
+model QuotationDetail {
+  id          Int       @id @default(autoincrement())
+  quotationId Int       @map("quotation_id")
+  productId   Int       @map("product_id")
+  quantity    Int
+  unitPrice   Float     @map("unit_price")
+  discount    Float     @default(0)
+  subtotal    Float
+
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("quotation_details")
+}
 
 model SalesOrder {
   id          Int       @id @default(autoincrement())
@@ -286,6 +327,7 @@ model SpecialOrder {
 model Invoice {
   id                 Int                  @id @default(autoincrement())
   salesOrderId       Int?                 @map("sales_order_id")
+  quotationId        Int?                 @map("quotation_id")
   customerId         Int                  @map("customer_id")
   userId             Int                  @map("user_id")
   invoiceNumber      String               @unique @map("invoice_number") 
@@ -296,6 +338,7 @@ model Invoice {
   status             String               @default("ACTIVA")
   issueDate          DateTime             @default(now()) @map("issue_date")
   salesOrder         SalesOrder?          @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
+  quotation          Quotation?           @relation(fields: [quotationId], references: [id], onDelete: SetNull)
   customer           Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
   user               User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
   details            InvoiceDetail[]

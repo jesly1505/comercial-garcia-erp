@@ -20,6 +20,8 @@ import CashDashboardPage from './pages/cash/CashDashboardPage';
 import CashHistoryPage from './pages/cash/CashHistoryPage';
 import OrdersPage from './pages/orders/OrdersPage';
 import NewOrderPage from './pages/orders/NewOrderPage';
+import QuotationsPage from './pages/quotations/QuotationsPage';
+import NewQuotationPage from './pages/quotations/NewQuotationPage';
 import AccountsReceivablePage from './pages/accounts-receivable/AccountsReceivablePage';
 import UsersPage from './pages/users/UsersPage';
 import RolesPage from './pages/roles/RolesPage';
@@ -57,6 +59,9 @@ const App: React.FC = () => {
               <Route path="nueva-compra" element={<NewPurchasePage />} />
               <Route path="ventas" element={<NewInvoicePage />} />
               <Route path="facturacion" element={<InvoicesPage />} />
+              <Route path="cotizaciones" element={<QuotationsPage />} />
+              <Route path="cotizaciones/nueva" element={<NewQuotationPage />} />
+              <Route path="cotizaciones/:id/editar" element={<NewQuotationPage />} />
               <Route path="caja" element={<CashDashboardPage />} />
               <Route path="caja/historial" element={<CashHistoryPage />} />
               <Route path="pedidos" element={<OrdersPage />} />

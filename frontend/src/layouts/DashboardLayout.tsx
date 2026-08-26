@@ -7,7 +7,7 @@ import {
   ArrowRightLeft, ShoppingBag, ShoppingCart,
   Wallet, CreditCard, PieChart,
   UserCog, Shield, History, Settings, LogOut,
-  Sun, Moon, FileText, Crown
+  Sun, Moon, FileText, Crown, FileSpreadsheet
 } from 'lucide-react';
 import { NotificationBell } from '../components/layout/NotificationBell';
 
@@ -36,6 +36,7 @@ const DashboardLayout: React.FC = () => {
     { path: '/compras',       icon: ShoppingBag,      label: 'Compras',             perm: 'purchases:view' },
     { path: '/ventas',        icon: ShoppingCart,     label: 'Ventas (POS)',        perm: 'sales_orders:view' },
     { path: '/facturacion',   icon: FileText,         label: 'Facturación',         perm: 'invoices:view' },
+    { path: '/cotizaciones',  icon: FileSpreadsheet,  label: 'Cotizaciones',        perm: 'sales_orders:view' },
     { path: '/pedidos',       icon: ShoppingBag,      label: 'Pedidos',             perm: 'sales_orders:view' },
     { path: '/caja',          icon: Wallet,           label: 'Caja',                perm: 'cash:view' },
     { path: '/cuentas-cobrar',icon: CreditCard,       label: 'Cuentas por Cobrar',  perm: 'accounts_receivable:view' },

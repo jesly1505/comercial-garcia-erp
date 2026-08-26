@@ -19,14 +19,18 @@ const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      const res = await api.post('/auth/login', { identifier: email, password });
+      const res = await api.post('/auth/login', { identifier: email.trim(), password });
       login(res.data.token, res.data.user);
       navigate('/dashboard');
     } catch (err: any) {
-      if (err.response?.status === 401) {
+      if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
+        setError(err.response.data.errors.map((e: any) => e.message).join(', '));
+      } else if (err.response?.status === 401) {
         setError('Credenciales inválidas');
       } else {
-        setError('Error de conexión con el servidor');
+        setError('Error de conexión con el servidor. Verifica que el backend esté iniciado.');
       }
     } finally {
       setLoading(false);

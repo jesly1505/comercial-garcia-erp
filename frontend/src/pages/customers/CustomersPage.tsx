@@ -45,7 +45,7 @@ const CustomersPage: React.FC = () => {
   const { hasPermission } = useAuth();
 
   const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<CustomerFormValues>({
-    resolver: zodResolver(customerSchema),
+    resolver: zodResolver(customerSchema) as any,
     defaultValues: { isActive: true, creditLimit: 0 },
   });
 

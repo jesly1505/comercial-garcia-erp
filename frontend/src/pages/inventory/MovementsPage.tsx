@@ -14,8 +14,8 @@ import { FormActions } from '../../components/ui/FormActions';
 
 const movementSchema = z.object({
   productId: z.string().min(1, 'Debe seleccionar un producto'),
-  movementType: z.enum(['Compra', 'Venta', 'Ajuste', 'Devolucion', 'Transferencia'], { errorMap: () => ({ message: 'Tipo inválido' }) }),
-  quantity: z.number().int().or(z.string().regex(/^-?\d+$/, 'Debe ser un número entero').transform(Number)),
+  movementType: z.enum(['Compra', 'Venta', 'Ajuste', 'Devolucion', 'Transferencia']),
+  quantity: z.coerce.number().min(1, 'La cantidad debe ser mayor a 0'),
   reason: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -31,7 +31,7 @@ const MovementsPage: React.FC = () => {
   const { user } = useAuth();
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<MovementFormValues>({
-    resolver: zodResolver(movementSchema),
+    resolver: zodResolver(movementSchema) as any,
     defaultValues: {
       movementType: 'Compra'
     }
@@ -250,9 +250,9 @@ const MovementsPage: React.FC = () => {
             </div>
 
             <FormActions 
+              isEditing={false}
               onCancel={() => { setShowForm(false); reset(); }} 
-              isSubmitting={isSubmitting} 
-              submitText="Registrar Movimiento" 
+              isLoading={isSubmitting} 
             />
           </form>
         </div>

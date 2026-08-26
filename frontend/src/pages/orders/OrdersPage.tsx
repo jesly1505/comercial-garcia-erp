@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, FileText, CheckCircle, XCircle, FilePlus, ChevronRight } from 'lucide-react';
+import { Plus, Search, CheckCircle, XCircle, FilePlus, ChevronRight } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 

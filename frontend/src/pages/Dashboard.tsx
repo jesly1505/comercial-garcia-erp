@@ -219,7 +219,7 @@ const Dashboard: React.FC = () => {
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      {topSellers.map((entry, index) => (
+                      {topSellers.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -341,7 +341,7 @@ const Dashboard: React.FC = () => {
                     <YAxis dataKey="name" type="category" stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
                     <Tooltip cursor={{fill: 'var(--hover-bg)'}} contentStyle={{ backgroundColor: 'var(--bg-panel)', borderColor: 'var(--border-color)', borderRadius: '8px' }} />
                     <Bar dataKey="qty" fill="#0b1930" radius={[0, 4, 4, 0]} barSize={20}>
-                      {topProducts.map((entry, index) => (
+                      {topProducts.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Bar>

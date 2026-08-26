@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 import ReportFilters from '../../components/ReportFilters';
 import { downloadFile } from '../../services/api';
 import { 
@@ -26,10 +27,12 @@ const ReportsDashboard: React.FC = () => {
   const handleDownload = async (url: string, filename: string) => {
     try {
       setLoading(true);
+      toast.loading('Generando reporte...', { id: 'report-download' });
       await downloadFile(url, filename);
+      toast.success('Reporte descargado correctamente', { id: 'report-download' });
     } catch (error) {
       console.error('Error al descargar:', error);
-      alert('Hubo un error al generar el reporte.');
+      toast.error('Hubo un error al generar el reporte.', { id: 'report-download' });
     } finally {
       setLoading(false);
     }

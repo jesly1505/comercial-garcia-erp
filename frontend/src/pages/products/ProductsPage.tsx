@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { Plus, Search, Edit2, Trash2, Package, DollarSign } from 'lucide-react';
 import styles from './ProductsPage.module.css';
@@ -47,6 +48,7 @@ const ProductsPage: React.FC = () => {
       setProducts(res.data);
     } catch (error) {
       console.error('Error fetching products', error);
+      toast.error('Error al cargar productos');
     } finally {
       setLoading(false);
     }
@@ -84,14 +86,16 @@ const ProductsPage: React.FC = () => {
 
       if (editingId) {
         await api.put(`/products/${editingId}`, payload);
+        toast.success('Producto actualizado exitosamente');
       } else {
         await api.post('/products', payload);
+        toast.success('Producto creado exitosamente');
       }
       setIsModalOpen(false);
       fetchProducts();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving product', error);
-      alert('Error al guardar producto. Revisa si el SKU ya existe.');
+      toast.error(error.response?.data?.error || 'Error al guardar producto. Revisa si el SKU ya existe.');
     }
   };
 
@@ -100,8 +104,10 @@ const ProductsPage: React.FC = () => {
       await api.delete(`/products/${id}`);
       setConfirmDeleteId(null);
       fetchProducts();
-    } catch (error) {
+      toast.success('Producto eliminado correctamente');
+    } catch (error: any) {
       console.error('Error deleting product', error);
+      toast.error(error.response?.data?.error || 'Error al eliminar producto');
     }
   };
 

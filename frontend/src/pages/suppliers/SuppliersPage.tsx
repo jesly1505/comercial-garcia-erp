@@ -40,7 +40,7 @@ const SuppliersPage: React.FC = () => {
   const { user } = useAuth();
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<SupplierFormValues>({
-    resolver: zodResolver(supplierSchema),
+    resolver: zodResolver(supplierSchema) as any,
     defaultValues: { isActive: true },
   });
 

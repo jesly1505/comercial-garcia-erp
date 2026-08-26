@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ShoppingCart, User, Plus, Trash2, CheckCircle, Package, X, DollarSign, Printer, Download, ArrowLeft } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { ShoppingCart, User, Plus, Trash2, CheckCircle, Package, X, DollarSign, Printer, Download } from 'lucide-react';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { downloadInvoicePDF, printInvoiceTicket } from '../../utils/invoicePrinter';
 
@@ -37,20 +36,28 @@ const NewInvoicePage: React.FC = () => {
   }, []);
 
   const fetchCustomers = async () => {
-    const res = await api.get('/customers');
-    setCustomers(res.data.filter((c: any) => c.isActive));
+    try {
+      const res = await api.get('/customers');
+      setCustomers(res.data.filter((c: any) => c.isActive));
+    } catch {
+      toast.error('Error al cargar clientes');
+    }
   };
 
   const fetchProducts = async () => {
-    const res = await api.get('/products');
-    setProducts(res.data.filter((p: any) => p.isActive && p.currentStock > 0));
+    try {
+      const res = await api.get('/products');
+      setProducts(res.data.filter((p: any) => p.isActive && p.currentStock > 0));
+    } catch {
+      toast.error('Error al cargar productos');
+    }
   };
 
   const addToCart = (product: any) => {
     const existing = cart.find(item => item.productId === product.id);
     if (existing) {
       if (existing.quantity >= product.currentStock) {
-        alert('No hay suficiente stock');
+        toast.error('No hay suficiente stock disponible');
         return;
       }
       setCart(cart.map(item => 
@@ -66,13 +73,15 @@ const NewInvoicePage: React.FC = () => {
         quantity: 1,
         maxStock: product.currentStock
       }]);
+      toast.success(`${product.name} agregado al carrito`, { duration: 1500 });
     }
   };
 
   const updateQuantity = (productId: number, qty: number) => {
     const item = cart.find(c => c.productId === productId);
+    if (!item) return;
     if (qty > item.maxStock) {
-      alert(`Solo hay ${item.maxStock} unidades en stock.`);
+      toast.error(`Solo hay ${item.maxStock} unidades en stock.`);
       return;
     }
     if (qty <= 0) {
@@ -91,8 +100,8 @@ const NewInvoicePage: React.FC = () => {
   const total = subtotal + taxAmount - discount;
 
   const handleCheckout = () => {
-    if (!selectedCustomer) return alert('Seleccione un cliente');
-    if (cart.length === 0) return alert('El carrito está vacío');
+    if (!selectedCustomer) return toast.error('Seleccione un cliente para continuar');
+    if (cart.length === 0) return toast.error('El carrito está vacío');
     setShowCheckoutModal(true);
     setPaymentMethod('EFECTIVO');
     setAmountPaid(total);
@@ -102,7 +111,7 @@ const NewInvoicePage: React.FC = () => {
     if (paymentMethod === 'EFECTIVO') {
       const paid = Number(amountPaid) || 0;
       if (paid < total) {
-        return alert('El monto recibido es menor al total a pagar.');
+        return toast.error('El monto recibido es menor al total a pagar.');
       }
     }
 
@@ -131,15 +140,16 @@ const NewInvoicePage: React.FC = () => {
       setApplyTax(false);
       setAmountPaid('');
       fetchProducts(); // Refrescar stock
+      toast.success('¡Venta facturada exitosamente!');
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Error al procesar la venta');
+      toast.error(error.response?.data?.error || 'Error al procesar la venta');
     }
   };
 
   const handleQuickCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCustomer.firstName || !newCustomer.lastName || !newCustomer.documentNumber) {
-      alert('Nombre, Apellido y Cédula son obligatorios');
+      toast.error('Nombre, Apellido y Cédula son obligatorios');
       return;
     }
     try {
@@ -148,9 +158,9 @@ const NewInvoicePage: React.FC = () => {
       setSelectedCustomer(res.data.id);
       setShowNewCustomerModal(false);
       setNewCustomer({ firstName: '', lastName: '', documentNumber: '', phone: '' });
-      alert('Cliente creado exitosamente');
+      toast.success('Cliente creado exitosamente');
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Error al crear cliente');
+      toast.error(err.response?.data?.error || 'Error al crear cliente');
     }
   };
 

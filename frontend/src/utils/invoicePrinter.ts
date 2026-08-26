@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import toast from 'react-hot-toast';
 
 export const generateInvoicePDF = (invoice: any) => {
   if (!invoice) return null;
@@ -79,7 +80,7 @@ export const printInvoiceTicket = (invoice: any) => {
   
   const printWindow = window.open('', '_blank', 'width=300,height=600');
   if (!printWindow) {
-    alert('Por favor permita los popups para imprimir');
+    toast.error('Por favor permita las ventanas emergentes (popups) para imprimir');
     return;
   }
 

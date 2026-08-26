@@ -9,6 +9,7 @@ import { Edit, Search, Download, Upload, FileText, Image as ImageIcon, ArrowRigh
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
 
 // ==========================
@@ -17,10 +18,10 @@ import { useAuth } from '../../contexts/AuthContext';
 const productSchema = z.object({
   sku: z.string().min(2, 'El código/SKU es requerido'),
   name: z.string().min(2, 'El nombre es requerido'),
-  costPrice: z.preprocess((val) => Number(val), z.number().min(0, 'No puede ser negativo')),
-  salePrice: z.preprocess((val) => Number(val), z.number().min(0, 'No puede ser negativo')),
-  currentStock: z.preprocess((val) => Number(val), z.number().min(0, 'No puede ser negativo')),
-  minStock: z.preprocess((val) => Number(val), z.number().min(0, 'No puede ser negativo')),
+  costPrice: z.coerce.number().min(0, 'No puede ser negativo'),
+  salePrice: z.coerce.number().min(0, 'No puede ser negativo'),
+  currentStock: z.coerce.number().min(0, 'No puede ser negativo'),
+  minStock: z.coerce.number().min(0, 'No puede ser negativo'),
   unit: z.string().min(1, 'La unidad es requerida'),
   imageUrl: z.string().url('Debe ser un enlace válido').optional().or(z.literal('')),
   isActive: z.boolean().default(true),
@@ -29,7 +30,7 @@ const productSchema = z.object({
 const movementSchema = z.object({
   movementType: z.string().min(1, 'Tipo de movimiento requerido'),
   reason: z.string().optional(),
-  quantity: z.preprocess((val) => Number(val), z.number().min(1, 'La cantidad debe ser mayor a 0')),
+  quantity: z.coerce.number().min(1, 'La cantidad debe ser mayor a 0'),
   notes: z.string().optional(),
 });
 
@@ -65,7 +66,7 @@ const InventoryPage: React.FC = () => {
     setValue: setProductValue,
     formState: { errors: productErrors, isSubmitting: isSubmittingProduct } 
   } = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema),
+    resolver: zodResolver(productSchema) as any,
     defaultValues: { minStock: 5, unit: 'UNIDAD', isActive: true }
   });
 
@@ -75,7 +76,7 @@ const InventoryPage: React.FC = () => {
     reset: resetMovement,
     formState: { errors: movementErrors, isSubmitting: isSubmittingMovement } 
   } = useForm<MovementFormValues>({
-    resolver: zodResolver(movementSchema),
+    resolver: zodResolver(movementSchema) as any,
     defaultValues: { movementType: 'ENTRADA', quantity: 1 }
   });
 
@@ -118,13 +119,15 @@ const InventoryPage: React.FC = () => {
     try {
       if (isEditing && editingId) {
         await api.put(`/products/${editingId}`, data);
+        toast.success('Producto actualizado exitosamente');
       } else {
         await api.post('/products', data);
+        toast.success('Producto creado exitosamente');
       }
       fetchProducts();
       handleCancelProduct();
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Error al guardar el producto');
+      toast.error(err.response?.data?.error || 'Error al guardar el producto');
     }
   };
 
@@ -199,9 +202,9 @@ const InventoryPage: React.FC = () => {
       });
       setShowMovementModal(false);
       fetchProducts(); // Refrescar el stock en la tabla principal
-      alert('Movimiento registrado correctamente.');
+      toast.success('Movimiento registrado correctamente');
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Error al registrar el movimiento');
+      toast.error(err.response?.data?.error || 'Error al registrar el movimiento');
     }
   };
 
@@ -217,10 +220,10 @@ const InventoryPage: React.FC = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setProductValue('imageUrl', res.data.imageUrl);
-      alert('Imagen subida correctamente');
+      toast.success('Imagen subida correctamente');
     } catch (err: any) {
       console.error(err);
-      alert('Error al subir la imagen');
+      toast.error('Error al subir la imagen');
     }
   };
 
@@ -304,7 +307,7 @@ const InventoryPage: React.FC = () => {
           console.error('Error importando fila', row, error);
         }
       }
-      alert(`Importación finalizada. ${successCount} artículos guardados.`);
+      toast.success(`Importación finalizada. ${successCount} artículos guardados.`);
       fetchProducts();
     };
     reader.readAsBinaryString(file);

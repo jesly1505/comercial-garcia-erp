@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Wallet, LogIn, LogOut, Download, Plus, Minus, Lock, Unlock } from 'lucide-react';
+import { Wallet, Download, Plus, Minus, Lock, Unlock } from 'lucide-react';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
-import { printInvoiceTicket } from '../../utils/invoicePrinter';
 
 const CashDashboardPage: React.FC = () => {
   const [sessionInfo, setSessionInfo] = useState<any>(null);
@@ -40,6 +40,7 @@ const CashDashboardPage: React.FC = () => {
       if (res.data.length > 0) setSelectedRegister(res.data[0].id.toString());
     } catch (error) {
       console.error(error);
+      toast.error('Error al cargar cajas');
     }
   };
 
@@ -59,8 +60,9 @@ const CashDashboardPage: React.FC = () => {
       setShowOpenModal(false);
       setOpenBalance('');
       fetchActiveSession();
+      toast.success('Caja abierta exitosamente');
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Error al abrir caja');
+      toast.error(error.response?.data?.error || 'Error al abrir caja');
     }
   };
 
@@ -72,6 +74,8 @@ const CashDashboardPage: React.FC = () => {
         closingBalance: Number(closeBalance)
       });
       
+      toast.success('Caja cerrada correctamente');
+
       // Print closing ticket
       if (window.confirm('Caja cerrada. ¿Deseas imprimir el comprobante de arqueo?')) {
         printArqueoTicket({ ...sessionInfo, closingBalance: res.data.closingBalance });
@@ -81,7 +85,7 @@ const CashDashboardPage: React.FC = () => {
       setCloseBalance('');
       setSessionInfo(null);
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Error al cerrar caja');
+      toast.error(error.response?.data?.error || 'Error al cerrar caja');
     }
   };
 
@@ -98,8 +102,9 @@ const CashDashboardPage: React.FC = () => {
       setMovementAmount('');
       setMovementDesc('');
       fetchActiveSession(); // Refresh totals
+      toast.success(movementType === 'IN' ? 'Entrada de efectivo registrada' : 'Salida de efectivo registrada');
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Error al registrar movimiento');
+      toast.error(error.response?.data?.error || 'Error al registrar movimiento');
     }
   };
 

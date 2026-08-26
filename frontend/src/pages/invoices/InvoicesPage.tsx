@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Printer, Download, Ban, Eye } from 'lucide-react';
+import { Search, Printer, Download, Ban } from 'lucide-react';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { downloadInvoicePDF, printInvoiceTicket } from '../../utils/invoicePrinter';
 import { useAuth } from '../../contexts/AuthContext';
@@ -16,7 +17,7 @@ const InvoicesPage: React.FC = () => {
       setInvoices(res.data);
     } catch (error) {
       console.error(error);
-      alert('Error al cargar facturas');
+      toast.error('Error al cargar facturas');
     } finally {
       setLoading(false);
     }
@@ -33,10 +34,10 @@ const InvoicesPage: React.FC = () => {
     
     try {
       await api.patch(`/invoices/${id}/void`);
-      alert('Factura anulada correctamente');
+      toast.success('Factura anulada correctamente');
       fetchInvoices();
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Error al anular la factura');
+      toast.error(error.response?.data?.error || 'Error al anular la factura');
     }
   };
 

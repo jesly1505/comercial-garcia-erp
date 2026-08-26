@@ -12,6 +12,7 @@ import {
 import { NotificationBell } from '../components/layout/NotificationBell';
 
 
+import toast from 'react-hot-toast';
 import styles from './DashboardLayout.module.css';
 
 const DashboardLayout: React.FC = () => {
@@ -24,7 +25,8 @@ const DashboardLayout: React.FC = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    toast.success('Sesión finalizada');
+    navigate('/auth/login');
   };
 
   const navItems = [

@@ -37,7 +37,34 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 const App: React.FC = () => {
   return (
     <ThemeProvider>
-      <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+      <Toaster 
+        position="top-right" 
+        toastOptions={{ 
+          duration: 4000,
+          style: {
+            background: 'var(--bg-card, #1e293b)',
+            color: 'var(--text-primary, #f8fafc)',
+            border: '1px solid rgba(197, 155, 109, 0.25)',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25)',
+            fontSize: '0.9rem',
+            fontWeight: 500,
+            borderRadius: '10px',
+            padding: '12px 16px'
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#ffffff'
+            }
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#ffffff'
+            }
+          }
+        }} 
+      />
       <AuthProvider>
         <BrowserRouter>
           <Routes>

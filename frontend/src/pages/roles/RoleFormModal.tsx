@@ -49,7 +49,7 @@ const RoleFormModal: React.FC<RoleFormModalProps> = ({ role, onClose, onSaved })
     description: role?.description || ''
   });
   
-  const [allPermissions, setAllPermissions] = useState<Permission[]>([]);
+  const [_allPermissions, setAllPermissions] = useState<Permission[]>([]);
   const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set(role?.permissions || []));
   const [loading, setLoading] = useState(false);
   const isAdmin = role?.name === 'ADMIN';

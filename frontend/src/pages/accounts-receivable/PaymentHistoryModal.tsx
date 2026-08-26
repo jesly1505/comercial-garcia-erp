@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, History, FileText } from 'lucide-react';
+import { X, History } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';

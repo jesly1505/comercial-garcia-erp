@@ -286,6 +286,24 @@ const InventoryPage: React.FC = () => {
     XLSX.writeFile(wb, "Inventario_Comercial_Garcia.xlsx");
   };
 
+  const downloadTemplate = () => {
+    const ws = XLSX.utils.json_to_sheet([
+      {
+        Código: '',
+        Nombre: '',
+        Costo: '',
+        Precio: '',
+        Stock: '',
+        'Stock Mínimo': '',
+        Unidad: ''
+      }
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Plantilla');
+    XLSX.writeFile(wb, 'Formato_Inventario.xlsx');
+  };
+
+
   const exportToPDF = () => {
     const doc = new jsPDF();
     doc.text("Catálogo de Inventario - Comercial García", 14, 15);
@@ -388,6 +406,7 @@ const InventoryPage: React.FC = () => {
               <button className="btn btn-secondary" onClick={exportToPDF} title="Exportar a PDF" style={{ padding: '0.5rem' }}>
                 <FileText size={18} color="#ef4444" />
               </button>
+                <button className="btn btn-secondary" onClick={downloadTemplate} style={{ padding: '0.5rem' }}>Descargar Plantilla</button>
               
               <label className="btn btn-secondary" style={{ padding: '0.5rem', cursor: 'pointer', margin: 0 }} title="Importar desde Excel">
                 <Upload size={18} color="#3b82f6" />

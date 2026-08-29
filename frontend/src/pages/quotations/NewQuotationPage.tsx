@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
   Plus, Trash2, Search, ArrowLeft, Save, 
-  FileText, Calendar, User, Package, Download 
+  FileText, Calendar, User, Package, Download
 } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -50,6 +50,50 @@ const NewQuotationPage: React.FC = () => {
     phone: '',
     email: '',
   });
+
+  const handleSelectEventualCustomer = async () => {
+    const eventual = customers.find(c => 
+      c.documentNumber === '000-000000-0000X' || 
+      c.documentNumber === 'EVENTUAL' || 
+      (c.firstName?.toLowerCase().includes('cliente') && c.lastName?.toLowerCase().includes('eventual'))
+    );
+
+    if (eventual) {
+      setSelectedCustomerId(eventual.id);
+      toast.success('Cliente Eventual seleccionado');
+      return;
+    }
+
+    try {
+      const res = await api.post('/customers', {
+        firstName: 'Cliente',
+        lastName: 'Eventual',
+        documentNumber: '000-000000-0000X',
+        phone: '0000-0000',
+        isActive: true,
+        creditLimit: 0
+      });
+      const custRes = await api.get('/customers');
+      const custData = Array.isArray(custRes.data) ? custRes.data : (custRes.data?.data || []);
+      setCustomers(custData);
+      setSelectedCustomerId(res.data.id);
+      toast.success('Cliente Eventual creado y seleccionado');
+    } catch (err: any) {
+      const custRes = await api.get('/customers');
+      const custData = Array.isArray(custRes.data) ? custRes.data : (custRes.data?.data || []);
+      setCustomers(custData);
+      const existing = custData.find((c: any) => 
+        c.documentNumber === '000-000000-0000X' || 
+        (c.firstName?.toLowerCase().includes('cliente') && c.lastName?.toLowerCase().includes('eventual'))
+      );
+      if (existing) {
+        setSelectedCustomerId(existing.id);
+        toast.success('Cliente Eventual seleccionado');
+      } else {
+        toast.error('No se pudo seleccionar el cliente eventual');
+      }
+    }
+  };
 
   // Calculate default validUntil date
   useEffect(() => {
@@ -300,14 +344,34 @@ const NewQuotationPage: React.FC = () => {
               <h3 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <User size={18} color="#c59b6d" /> 1. Datos del Cliente
               </h3>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem' }}
-                onClick={() => setShowNewCustomerModal(true)}
-              >
-                <Plus size={14} style={{ marginRight: '0.3rem' }} /> Nuevo Cliente
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={handleSelectEventualCustomer}
+                  style={{
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    padding: '0.35rem 0.65rem',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(234, 179, 8, 0.4)',
+                    backgroundColor: 'rgba(234, 179, 8, 0.12)',
+                    color: '#d97706',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="Seleccionar o crear rápidamente un Cliente Eventual"
+                >
+                  Cliente Eventual
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem' }}
+                  onClick={() => setShowNewCustomerModal(true)}
+                >
+                  <Plus size={14} style={{ marginRight: '0.3rem' }} /> Nuevo Cliente
+                </button>
+              </div>
             </div>
 
             <div style={{ marginBottom: '1rem' }}>
@@ -689,7 +753,25 @@ const NewQuotationPage: React.FC = () => {
               borderRadius: '12px',
             }}
           >
-            <h3 style={{ margin: '0 0 1rem 0' }}>Registrar Nuevo Cliente</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0 }}>Registrar Nuevo Cliente</h3>
+              <button
+                type="button"
+                onClick={() => setNewCustomer({ firstName: 'Cliente', lastName: 'Eventual', company: 'Consumidor Final', documentNumber: '000-000000-0000X', phone: '0000-0000', email: '' })}
+                style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  padding: '0.3rem 0.6rem',
+                  borderRadius: '6px',
+                  border: '1px dashed #d97706',
+                  backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                  color: '#d97706',
+                  cursor: 'pointer'
+                }}
+              >
+                Autocompletar Eventual
+              </button>
+            </div>
             <form onSubmit={handleCreateCustomer}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
                 <div>

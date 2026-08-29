@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { format } from 'date-fns';
 import { Filter, AlertCircle, RefreshCw, Search, Calendar, User } from 'lucide-react';
 import api from '../../services/api';
+import Pagination from '../../components/common/Pagination';
 import styles from './AuditLogPage.module.css';
 interface AuditLog {
   id: number;
@@ -71,6 +72,8 @@ export const AuditLogPage: React.FC = () => {
   const [dateFilter, setDateFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [users, setUsers] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchUsers = async () => {
     try {
@@ -248,7 +251,9 @@ export const AuditLogPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => (
+                logs
+                  .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                  .map((log) => (
                   <tr key={log.id} className="hover:bg-gray-50">
                     <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">
                       <div>{format(new Date(log.createdAt), 'dd/MM/yyyy')}</div>
@@ -281,7 +286,17 @@ export const AuditLogPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          currentPage={currentPage}
+          totalItems={logs.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
     </div>
   );
 };
+
+export default AuditLogPage;

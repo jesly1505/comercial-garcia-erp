@@ -8,6 +8,7 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { downloadQuotationPDF, printQuotationTicket } from '../../utils/quotationPrinter';
 import { QuotationDetailModal } from './QuotationDetailModal';
+import Pagination from '../../components/common/Pagination';
 
 const QuotationsPage: React.FC = () => {
   const [quotations, setQuotations] = useState<any[]>([]);
@@ -15,6 +16,8 @@ const QuotationsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [loading, setLoading] = useState<boolean>(true);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
   const [selectedQuotation, setSelectedQuotation] = useState<any | null>(null);
   const navigate = useNavigate();
 
@@ -55,6 +58,7 @@ const QuotationsPage: React.FC = () => {
     }
 
     setFilteredQuotations(result);
+    setCurrentPage(1);
   }, [searchTerm, statusFilter, quotations]);
 
   const handleDelete = async (id: number, number: string) => {
@@ -241,7 +245,9 @@ const QuotationsPage: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              filteredQuotations.map((q) => (
+              filteredQuotations
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map((q) => (
                 <tr key={q.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                   <td style={{ padding: '1rem', fontWeight: 'bold' }}>
                     <span style={{ color: 'var(--primary-color)' }}>{q.quotationNumber}</span>
@@ -349,6 +355,14 @@ const QuotationsPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredQuotations.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {/* Modal for viewing quotation details */}
       {selectedQuotation && (

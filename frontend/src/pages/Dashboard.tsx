@@ -11,6 +11,7 @@ import {
 import styles from './Dashboard.module.css';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import toast from 'react-hot-toast';
 import { formatCurrency } from '../utils/formatters';
 
 const COLORS = ['#0b1930', '#c59b6d', '#3b82f6', '#10b981', '#f59e0b'];
@@ -150,6 +151,7 @@ const Dashboard: React.FC = () => {
         });
       } catch (e) {
         console.error('Error fetching dashboard stats', e);
+        toast.error('Error al cargar datos del panel de control');
       }
     };
 

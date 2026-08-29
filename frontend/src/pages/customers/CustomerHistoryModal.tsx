@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Receipt, ShoppingBag, CreditCard } from 'lucide-react';
 import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 interface HistoryModalProps {
   customer: any;
@@ -20,6 +21,7 @@ export const CustomerHistoryModal: React.FC<HistoryModalProps> = ({ customer, on
         setDetails(res.data);
       } catch (err) {
         console.error('Error fetching customer details', err);
+        toast.error('Error al cargar historial del cliente');
       } finally {
         setLoading(false);
       }

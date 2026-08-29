@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { formatCurrency, formatDateTime } from '../../utils/formatters';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import TableSkeleton from '../../components/common/TableSkeleton';
+import Pagination from '../../components/common/Pagination';
 
 export interface PurchaseItem {
   id: number;
@@ -27,6 +28,8 @@ const PurchasesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -199,7 +202,9 @@ const PurchasesPage: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              filteredPurchases.map(p => (
+              filteredPurchases
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map(p => (
                 <tr key={p.id} style={{ borderBottom: '1px solid var(--border-glass)' }}>
                   <td style={{ padding: '1rem', fontWeight: 'bold' }}>#{p.id}</td>
                   <td style={{ padding: '1rem' }}>{formatDateTime(p.createdAt)}</td>
@@ -250,6 +255,14 @@ const PurchasesPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredPurchases.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
 
       <ConfirmModal
         isOpen={confirmModal.isOpen}

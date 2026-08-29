@@ -3,6 +3,7 @@ import { Bell, Check, Info, AlertTriangle, CheckCircle, XCircle } from 'lucide-r
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+import toast from 'react-hot-toast';
 
 import api from '../../services/api';
 
@@ -52,8 +53,12 @@ export const NotificationBell: React.FC = () => {
     try {
       await api.put(`/notifications/${id}/read`);
       fetchNotifications();
+      if (id === 'all') {
+        toast.success('Todas las notificaciones marcadas como leídas');
+      }
     } catch (error) {
       console.error('Error marking as read:', error);
+      toast.error('Error al actualizar notificaciones');
     }
   };
 

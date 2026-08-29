@@ -9,6 +9,7 @@ import { CustomerHistoryModal } from './CustomerHistoryModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { Modal } from '../../components/ui/Modal';
 import { ConfirmModal } from '../../components/ui/ConfirmModal';
+import Pagination from '../../components/common/Pagination';
 import styles from './CustomersPage.module.css';
 
 const customerSchema = z.object({
@@ -33,6 +34,8 @@ const CustomersPage: React.FC = () => {
   const [customers, setCustomers] = useState<any[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -75,6 +78,7 @@ const CustomersPage: React.FC = () => {
         (c.company && c.company.toLowerCase().includes(lower))
       ));
     }
+    setCurrentPage(1);
   }, [searchTerm, customers]);
 
   const onSubmit = async (data: CustomerFormValues) => {
@@ -174,7 +178,9 @@ const CustomersPage: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              filteredCustomers.map(c => {
+              filteredCustomers
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map(c => {
                 const balance = c.accountsReceivable?.reduce((sum: number, acc: any) => sum + Number(acc.balance || 0), 0) || 0;
                 return (
                   <tr key={c.id} className={styles.row}>
@@ -221,6 +227,14 @@ const CustomersPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredCustomers.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {/* ─── Customer Form Modal ─── */}
       <Modal

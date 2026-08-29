@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import {
   LayoutDashboard, Users, Truck, Archive,
   ArrowRightLeft, ShoppingBag, ShoppingCart,
   Wallet, CreditCard, PieChart,
-  UserCog, Shield, History, Settings, LogOut,
-  Sun, Moon, FileText, Crown, FileSpreadsheet
+  Settings, LogOut,
+  Sun, Moon, FileText, Crown, FileSpreadsheet,
+  ChevronDown, UserCog, Shield, History, Building2
 } from 'lucide-react';
 import { NotificationBell } from '../components/layout/NotificationBell';
-
 
 import toast from 'react-hot-toast';
 import styles from './DashboardLayout.module.css';
@@ -18,10 +18,20 @@ import styles from './DashboardLayout.module.css';
 const DashboardLayout: React.FC = () => {
   // collapsed: sidebar icon‑only on desktop
   const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
 
   const { user, logout, hasPermission } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+
+  const roleName = typeof user?.role === 'string' ? user?.role : user?.role?.name;
+  const isAdmin = roleName === 'ADMIN';
+
+  const isConfigRoute = location.pathname.startsWith('/configuracion') || 
+                        location.pathname.startsWith('/usuarios') || 
+                        location.pathname.startsWith('/roles') || 
+                        location.pathname.startsWith('/bitacora');
+  const [configOpen, setConfigOpen] = useState(true);
 
   const handleLogout = () => {
     logout();
@@ -43,9 +53,13 @@ const DashboardLayout: React.FC = () => {
     { path: '/caja',          icon: Wallet,           label: 'Caja',                perm: 'cash:view' },
     { path: '/cuentas-cobrar',icon: CreditCard,       label: 'Cuentas por Cobrar',  perm: 'accounts_receivable:view' },
     { path: '/reportes',      icon: PieChart,         label: 'Reportes',            perm: 'reports:view' },
-    { path: '/usuarios',      icon: UserCog,          label: 'Usuarios',            perm: 'users:view' },
-    { path: '/roles',         icon: Shield,           label: 'Roles',               perm: 'roles:view' },
-    { path: '/bitacora',      icon: History,          label: 'Bitácora',            perm: 'settings:view' },
+  ];
+
+  const configSubItems = [
+    { path: '/configuracion', label: 'General / Empresa', icon: Building2 },
+    { path: '/usuarios', label: 'Usuarios', icon: UserCog },
+    { path: '/roles', label: 'Roles', icon: Shield },
+    { path: '/bitacora', label: 'Bitácora', icon: History },
   ];
 
   const filteredNavItems = navItems.filter(item => !item.perm || hasPermission(item.perm));
@@ -92,17 +106,47 @@ const DashboardLayout: React.FC = () => {
               {!collapsed && <span>{item.label}</span>}
             </NavLink>
           ))}
+
+          {/* Configuración Expandable Submenu - Solo Administrador */}
+          {isAdmin && (
+            <div className={styles.submenuContainer}>
+              <button
+                type="button"
+                onClick={() => setConfigOpen(o => !o)}
+                title={collapsed ? 'Configuración' : undefined}
+                className={`${styles.submenuTrigger} ${isConfigRoute ? styles.submenuTriggerActive : ''}`}
+              >
+                <div className={styles.submenuTriggerLeft}>
+                  <Settings size={20} className={styles.navIcon} />
+                  {!collapsed && <span>Configuración</span>}
+                </div>
+                {!collapsed && (
+                  <ChevronDown
+                    size={16}
+                    className={`${styles.submenuChevron} ${configOpen ? styles.submenuChevronOpen : ''}`}
+                  />
+                )}
+              </button>
+
+              {!collapsed && configOpen && (
+                <div className={styles.submenuList}>
+                  {configSubItems.map(subItem => (
+                    <NavLink
+                      key={subItem.path}
+                      to={subItem.path}
+                      className={({ isActive }) => `${styles.submenuItem} ${isActive ? styles.submenuItemActive : ''}`}
+                    >
+                      <subItem.icon size={15} />
+                      <span>{subItem.label}</span>
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </nav>
         {/* Footer */}
         <div className={styles.sidebarFooter}>
-          <NavLink
-            to="/configuracion"
-            title={collapsed ? 'Configuración' : undefined}
-            className={({ isActive }) => `${styles.navItem} ${collapsed ? styles.navItemCollapsed : ''} ${isActive ? styles.active : ''}`}
-          >
-            <Settings size={20} className={styles.navIcon} />
-            {!collapsed && <span>Configuración</span>}
-          </NavLink>
           <button
             onClick={handleLogout}
             title={collapsed ? 'Cerrar Sesión' : undefined}

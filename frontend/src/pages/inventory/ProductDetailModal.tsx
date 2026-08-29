@@ -109,6 +109,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       setMovements(filtered);
     } catch (err) {
       console.error('Error cargando movimientos del producto:', err);
+      toast.error('Error al cargar movimientos del producto');
     } finally {
       setLoadingMovements(false);
     }

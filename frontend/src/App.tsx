@@ -28,8 +28,8 @@ const NewQuotationPage = lazy(() => import('./pages/quotations/NewQuotationPage'
 const AccountsReceivablePage = lazy(() => import('./pages/accounts-receivable/AccountsReceivablePage'));
 const UsersPage = lazy(() => import('./pages/users/UsersPage'));
 const RolesPage = lazy(() => import('./pages/roles/RolesPage'));
-const AuditLogPage = lazy(() => import('./pages/audit/AuditLogPage').then(m => ({ default: m.AuditLogPage })));
-const SettingsPage = lazy(() => import('./pages/settings/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const AuditLogPage = lazy(() => import('./pages/audit/AuditLogPage'));
+const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
 
 // Loading Fallback Component
 const PageLoader: React.FC = () => (
@@ -45,6 +45,15 @@ const PageLoader: React.FC = () => (
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
   return isAuthenticated ? <>{children}</> : <Navigate to="/auth/login" replace />;
+};
+
+// Rutas Exclusivas para Administrador
+const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/auth/login" replace />;
+  const roleName = typeof user?.role === 'string' ? user.role : user?.role?.name;
+  if (roleName !== 'ADMIN') return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
 };
 
 const App: React.FC = () => {
@@ -110,10 +119,10 @@ const App: React.FC = () => {
                   <Route path="pedidos/nuevo" element={<NewOrderPage />} />
                   <Route path="cuentas-cobrar" element={<AccountsReceivablePage />} />
                   <Route path="reportes" element={<ReportsDashboard />} />
-                  <Route path="usuarios" element={<UsersPage />} />
-                  <Route path="roles" element={<RolesPage />} />
-                  <Route path="bitacora" element={<AuditLogPage />} />
-                  <Route path="configuracion" element={<SettingsPage />} />
+                  <Route path="usuarios" element={<AdminRoute><UsersPage /></AdminRoute>} />
+                  <Route path="roles" element={<AdminRoute><RolesPage /></AdminRoute>} />
+                  <Route path="bitacora" element={<AdminRoute><AuditLogPage /></AdminRoute>} />
+                  <Route path="configuracion" element={<AdminRoute><SettingsPage /></AdminRoute>} />
                 </Route>
 
                 {/* Redirección Catch-all */}

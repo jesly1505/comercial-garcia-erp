@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ShoppingBag } from 'lucide-react';
 import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 interface SupplierHistoryModalProps {
   supplier: any;
@@ -19,6 +20,7 @@ export const SupplierHistoryModal: React.FC<SupplierHistoryModalProps> = ({ supp
         setDetails(res.data);
       } catch (err) {
         console.error('Error fetching supplier details', err);
+        toast.error('Error al cargar historial del proveedor');
       } finally {
         setLoading(false);
       }

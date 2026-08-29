@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import api from '../../services/api';
+import toast from 'react-hot-toast';
+import Pagination from '../../components/common/Pagination';
 
 const CashHistoryPage: React.FC = () => {
   const [history, setHistory] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchHistory = async () => {
     try {
@@ -13,6 +17,7 @@ const CashHistoryPage: React.FC = () => {
       setHistory(res.data);
     } catch (error) {
       console.error(error);
+      toast.error('Error al cargar historial de caja');
     } finally {
       setLoading(false);
     }
@@ -78,7 +83,9 @@ const CashHistoryPage: React.FC = () => {
             ) : filteredHistory.length === 0 ? (
               <tr><td colSpan={7} style={{ padding: '2rem', textAlign: 'center' }}>No se encontraron registros de caja</td></tr>
             ) : (
-              filteredHistory.map((session) => {
+              filteredHistory
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map((session) => {
                 const diff = Number(session.closingBalance || 0) - Number(session.expectedBalance || 0);
                 const isClosed = session.status === 'CLOSED';
                 return (
@@ -103,6 +110,14 @@ const CashHistoryPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredHistory.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
     </div>
   );
 };

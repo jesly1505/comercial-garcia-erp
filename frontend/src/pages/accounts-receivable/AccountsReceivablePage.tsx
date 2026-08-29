@@ -6,6 +6,7 @@ import RegisterPaymentModal from './RegisterPaymentModal';
 import PaymentHistoryModal from './PaymentHistoryModal';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import TableSkeleton from '../../components/common/TableSkeleton';
+import Pagination from '../../components/common/Pagination';
 
 export interface ReceivableItem {
   id: number;
@@ -32,6 +33,8 @@ const AccountsReceivablePage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'PENDING' | 'OVERDUE' | 'PAID'>('PENDING');
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -164,7 +167,9 @@ const AccountsReceivablePage: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              filteredReceivables.map((ar) => (
+              filteredReceivables
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map((ar) => (
                 <tr key={ar.id} style={{ borderBottom: '1px solid var(--border-glass)' }}>
                   <td style={{ padding: '1rem', fontWeight: 'bold' }}>{ar.invoice?.invoiceNumber}</td>
                   <td style={{ padding: '1rem' }}>
@@ -214,6 +219,14 @@ const AccountsReceivablePage: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredReceivables.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {showPaymentModal && selectedAr && (
         <RegisterPaymentModal

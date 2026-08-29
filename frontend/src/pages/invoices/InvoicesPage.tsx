@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { formatCurrency, formatDateTime } from '../../utils/formatters';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import TableSkeleton from '../../components/common/TableSkeleton';
+import Pagination from '../../components/common/Pagination';
 
 export interface InvoiceItem {
   id: number;
@@ -28,6 +29,8 @@ const InvoicesPage: React.FC = () => {
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [voidModal, setVoidModal] = useState<{ isOpen: boolean; id: number | null; invoiceNumber: string }>({
     isOpen: false,
     id: null,
@@ -132,7 +135,9 @@ const InvoicesPage: React.FC = () => {
             ) : filteredInvoices.length === 0 ? (
               <tr><td colSpan={7} style={{ padding: '2rem', textAlign: 'center' }}>No se encontraron facturas</td></tr>
             ) : (
-              filteredInvoices.map((inv) => (
+              filteredInvoices
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map((inv) => (
                 <tr key={inv.id} style={{ borderBottom: '1px solid var(--border-glass)' }}>
                   <td style={{ padding: '1rem', fontWeight: 600 }}>{inv.invoiceNumber}</td>
                   <td style={{ padding: '1rem' }}>{formatDateTime(inv.issueDate)}</td>
@@ -182,6 +187,14 @@ const InvoicesPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredInvoices.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
 
       <ConfirmModal
         isOpen={voidModal.isOpen}

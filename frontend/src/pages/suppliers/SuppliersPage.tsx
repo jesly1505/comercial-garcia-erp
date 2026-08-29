@@ -9,6 +9,7 @@ import { SupplierHistoryModal } from './SupplierHistoryModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { Modal } from '../../components/ui/Modal';
 import { ConfirmModal } from '../../components/ui/ConfirmModal';
+import Pagination from '../../components/common/Pagination';
 import sStyles from './SuppliersPage.module.css';
 
 const supplierSchema = z.object({
@@ -28,6 +29,8 @@ const SuppliersPage: React.FC = () => {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showInactive, setShowInactive] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -157,7 +160,9 @@ const SuppliersPage: React.FC = () => {
             {filteredSuppliers.length === 0 ? (
               <tr><td colSpan={5} className={sStyles.empty}>No se encontraron proveedores</td></tr>
             ) : (
-              filteredSuppliers.map(s => (
+              filteredSuppliers
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map(s => (
                 <tr key={s.id} className={sStyles.row}>
                   <td className={sStyles.code}>{s.code}</td>
                   <td>
@@ -198,6 +203,14 @@ const SuppliersPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredSuppliers.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {/* Supplier Form Modal */}
       <Modal

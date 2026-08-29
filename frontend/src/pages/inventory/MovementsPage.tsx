@@ -11,6 +11,7 @@ import autoTable from 'jspdf-autotable';
 import toast from 'react-hot-toast';
 import formStyles from '../../styles/forms.module.css';
 import { FormActions } from '../../components/ui/FormActions';
+import Pagination from '../../components/common/Pagination';
 
 const movementSchema = z.object({
   productId: z.string().min(1, 'Debe seleccionar un producto'),
@@ -28,6 +29,8 @@ const MovementsPage: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const { user } = useAuth();
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<MovementFormValues>({
@@ -45,6 +48,7 @@ const MovementsPage: React.FC = () => {
       setFiltered(data);
     } catch (err) {
       console.error('Error fetching movements', err);
+      toast.error('Error al cargar movimientos de inventario');
     }
   };
 
@@ -55,6 +59,7 @@ const MovementsPage: React.FC = () => {
       setProducts(data);
     } catch (err) {
       console.error('Error fetching products', err);
+      toast.error('Error al cargar productos');
     }
   };
 
@@ -75,6 +80,7 @@ const MovementsPage: React.FC = () => {
         m.reason?.toLowerCase().includes(lower)
       ));
     }
+    setCurrentPage(1);
   }, [searchTerm, movements]);
 
   const onSubmit = async (data: MovementFormValues) => {
@@ -259,7 +265,8 @@ const MovementsPage: React.FC = () => {
           </form>
         </div>
       ) : (
-        <div className="glass-panel" style={{ overflowX: 'auto' }}>
+        <>
+          <div className="glass-panel" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
@@ -277,9 +284,11 @@ const MovementsPage: React.FC = () => {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={9} style={{ padding: '2rem', textAlign: 'center' }}>No hay movimientos registrados.</td></tr>
+                <tr><td colSpan={10} style={{ padding: '2rem', textAlign: 'center' }}>No hay movimientos registrados.</td></tr>
               ) : (
-                filtered.map(m => {
+                filtered
+                  .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                  .map(m => {
                   const color = m.stockAfter > m.stockBefore ? '#10b981' : (m.stockAfter < m.stockBefore ? '#ef4444' : 'var(--text-color)');
                   
                   return (
@@ -313,7 +322,15 @@ const MovementsPage: React.FC = () => {
               )}
             </tbody>
           </table>
-        </div>
+          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filtered.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        </>
       )}
     </div>
   );

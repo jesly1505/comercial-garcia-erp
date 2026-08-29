@@ -17,6 +17,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import TableSkeleton from '../../components/common/TableSkeleton';
+import Pagination from '../../components/common/Pagination';
 import { formatCurrency } from '../../utils/formatters';
 import { ProductDetailModal } from './ProductDetailModal';
 
@@ -50,6 +51,8 @@ const InventoryPage: React.FC = () => {
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   
   const { user } = useAuth();
   
@@ -495,7 +498,8 @@ const InventoryPage: React.FC = () => {
           </form>
         </div>
       ) : (
-        <div className="glass-panel" style={{ overflowX: 'auto', borderRadius: '12px' }}>
+        <>
+          <div className="glass-panel" style={{ overflowX: 'auto', borderRadius: '12px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
@@ -537,7 +541,9 @@ const InventoryPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map(p => (
+                filteredProducts
+                  .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                  .map(p => (
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                     <td style={{ padding: '0.5rem 0.75rem' }}>
                       {p.imageUrl ? (
@@ -621,7 +627,15 @@ const InventoryPage: React.FC = () => {
               )}
             </tbody>
           </table>
-        </div>
+          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filteredProducts.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        </>
       )}
 
       {/* MODAL DE MOVIMIENTOS MEJORADO */}

@@ -29,6 +29,46 @@ const NewOrderPage: React.FC = () => {
     }
   };
 
+  const handleSelectEventualCustomer = async () => {
+    const eventual = customers.find(c => 
+      c.documentNumber === '000-000000-0000X' || 
+      c.documentNumber === 'EVENTUAL' || 
+      (c.firstName?.toLowerCase().includes('cliente') && c.lastName?.toLowerCase().includes('eventual'))
+    );
+
+    if (eventual) {
+      setSelectedCustomer(eventual.id);
+      toast.success('Cliente Eventual seleccionado');
+      return;
+    }
+
+    try {
+      const res = await api.post('/customers', {
+        firstName: 'Cliente',
+        lastName: 'Eventual',
+        documentNumber: '000-000000-0000X',
+        phone: '0000-0000',
+        isActive: true,
+        creditLimit: 0
+      });
+      await fetchCustomers();
+      setSelectedCustomer(res.data.id);
+      toast.success('Cliente Eventual creado y seleccionado');
+    } catch (err: any) {
+      await fetchCustomers();
+      const existing = customers.find(c => 
+        c.documentNumber === '000-000000-0000X' || 
+        (c.firstName?.toLowerCase().includes('cliente') && c.lastName?.toLowerCase().includes('eventual'))
+      );
+      if (existing) {
+        setSelectedCustomer(existing.id);
+        toast.success('Cliente Eventual seleccionado');
+      } else {
+        toast.error('No se pudo seleccionar el cliente eventual');
+      }
+    }
+  };
+
   const fetchProducts = async () => {
     try {
       const res = await api.get('/products?all=true');
@@ -99,7 +139,8 @@ const NewOrderPage: React.FC = () => {
       toast.success('Pedido creado exitosamente');
       navigate('/pedidos'); // Volver a la lista de pedidos
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Error al crear el pedido');
+      toast.error(error.response?.data?.error || 'Error al procesar el pedido');
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -157,7 +198,27 @@ const NewOrderPage: React.FC = () => {
         </h2>
 
         <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Cliente</label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Cliente</label>
+            <button
+              type="button"
+              onClick={handleSelectEventualCustomer}
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '3px 8px',
+                borderRadius: '6px',
+                border: '1px solid rgba(234, 179, 8, 0.4)',
+                backgroundColor: 'rgba(234, 179, 8, 0.12)',
+                color: '#d97706',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title="Seleccionar o crear rápidamente un Cliente Eventual"
+            >
+              Cliente Eventual
+            </button>
+          </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <User size={20} color="var(--text-secondary)" style={{ alignSelf: 'center' }} />
             <select 
@@ -167,10 +228,36 @@ const NewOrderPage: React.FC = () => {
             >
               <option value="">Seleccione un cliente...</option>
               {customers.map(c => (
-                <option key={c.id} value={c.id}>{c.firstName} {c.lastName} ({c.documentNumber})</option>
+                <option key={c.id} value={c.id}>
+                  {c.firstName} {c.lastName} ({c.documentNumber})
+                </option>
               ))}
             </select>
           </div>
+          {selectedCustomer && customers.find(c => c.id === selectedCustomer) && (
+            <div style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}>
+              {(() => {
+                const customer = customers.find(c => c.id === selectedCustomer);
+                const isEventual = customer?.documentNumber === '000-000000-0000X' || customer?.lastName === 'Eventual';
+                if (isEventual) {
+                  return (
+                    <span style={{ 
+                      display: 'inline-block',
+                      color: '#d97706', 
+                      background: 'rgba(234, 179, 8, 0.12)', 
+                      padding: '2px 8px', 
+                      borderRadius: '4px', 
+                      fontWeight: 600,
+                      fontSize: '0.75rem' 
+                    }}>
+                      Pedido para Cliente Eventual
+                    </span>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+          )}
         </div>
 
         <div style={{ flexGrow: 1, overflowY: 'auto', marginBottom: '1.5rem', paddingRight: '0.5rem' }}>

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { formatCurrency, formatDateTime } from '../../utils/formatters';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import TableSkeleton from '../../components/common/TableSkeleton';
+import Pagination from '../../components/common/Pagination';
 
 export interface SalesOrderItem {
   id: number;
@@ -25,6 +26,8 @@ const OrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<SalesOrderItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
     title: string;
@@ -188,7 +191,9 @@ const OrdersPage: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              filteredOrders.map((order) => (
+              filteredOrders
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map((order) => (
                 <tr key={order.id} style={{ borderBottom: '1px solid var(--border-glass)' }}>
                   <td style={{ padding: '1rem', fontWeight: 'bold' }}>#{order.id}</td>
                   <td style={{ padding: '1rem' }}>
@@ -243,6 +248,14 @@ const OrdersPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredOrders.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
 
       <ConfirmModal
         isOpen={confirmState.isOpen}

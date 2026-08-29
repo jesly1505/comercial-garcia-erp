@@ -36,8 +36,8 @@ export const SupplierHistoryModal: React.FC<SupplierHistoryModalProps> = ({ supp
       display: 'flex', justifyContent: 'flex-end'
     }}>
       <div className="animate-fade-in" style={{
-        backgroundColor: 'var(--bg-base)', width: '100%', maxWidth: '650px',
-        height: '100%', overflowY: 'auto', padding: '2rem',
+        backgroundColor: 'var(--bg-base)', width: '100%', maxWidth: 'min(100vw, 650px)',
+        height: '100%', overflowY: 'auto', padding: 'clamp(1rem, 3vw, 2rem)',
         boxShadow: '-4px 0 15px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column'
       }}>
         {/* Header */}

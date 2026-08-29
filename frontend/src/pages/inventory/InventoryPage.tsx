@@ -5,7 +5,11 @@ import * as z from 'zod';
 import { FormActions } from '../../components/ui/FormActions';
 import formStyles from '../../styles/forms.module.css';
 import api from '../../services/api';
-import { Edit, Search, Download, Upload, FileText, Image as ImageIcon, ArrowRightLeft, History, X, Trash2 } from 'lucide-react';
+import { 
+  Edit, Search, Download, Upload, FileText, Image as ImageIcon, 
+  ArrowRightLeft, History, X, Trash2, 
+  Sliders, CheckCircle2, AlertCircle, ArrowUpRight, ArrowDownRight, Package
+} from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -80,11 +84,38 @@ const InventoryPage: React.FC = () => {
     register: registerMovement, 
     handleSubmit: handleSubmitMovement, 
     reset: resetMovement,
+    setValue: setMovementValue,
+    watch: watchMovement,
     formState: { errors: movementErrors, isSubmitting: isSubmittingMovement } 
   } = useForm<MovementFormValues>({
     resolver: zodResolver(movementSchema) as any,
-    defaultValues: { movementType: 'ENTRADA', quantity: 1 }
+    defaultValues: { movementType: 'ENTRADA', quantity: 1, reason: '', notes: '' }
   });
+
+  const watchedMovementType = watchMovement('movementType') || 'ENTRADA';
+  const watchedQuantity = Number(watchMovement('quantity') || 0);
+
+  // Compute live projected stock
+  const isAdditionType = ['ENTRADA', 'COMPRA', 'DEVOLUCION', 'AJUSTE_POSITIVO'].includes(watchedMovementType);
+  const isSubtractionType = ['SALIDA', 'VENTA', 'DANADO', 'PERDIDO', 'ROBADO', 'VENCIDO', 'AJUSTE_NEGATIVO'].includes(watchedMovementType);
+  
+  let projectedStock = selectedProduct ? Number(selectedProduct.currentStock || 0) : 0;
+  if (isAdditionType) {
+    projectedStock += Math.abs(watchedQuantity);
+  } else if (isSubtractionType) {
+    projectedStock -= Math.abs(watchedQuantity);
+  } else if (watchedMovementType === 'AJUSTE') {
+    projectedStock += watchedQuantity;
+  }
+
+  const quickReasons = [
+    'Compra a proveedor',
+    'Ajuste físico de stock',
+    'Devolución de cliente',
+    'Merma por daño',
+    'Venta en mostrador',
+    'Inventario inicial'
+  ];
 
   // ==========================
   // FETCH
@@ -471,22 +502,32 @@ const InventoryPage: React.FC = () => {
           </form>
         </div>
       ) : (
-        <div className="glass-panel" style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <div className="glass-panel" style={{ overflowX: 'auto', borderRadius: '12px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
-                <th style={{ padding: '1rem', width: '50px' }}>Img</th>
-                <th style={{ padding: '1rem' }}>Código</th>
-                <th style={{ padding: '1rem' }}>Producto</th>
-                <th style={{ padding: '1rem' }}>Categoría</th>
-                <th style={{ padding: '1rem' }}>Marca</th>
-                <th style={{ padding: '1rem' }}>Stock Inicial</th>
-                <th style={{ padding: '1rem' }}>Stock Mín.</th>
-                <th style={{ padding: '1rem' }}>Costo Unit.</th>
-                <th style={{ padding: '1rem' }}>Precio Venta</th>
-                <th style={{ padding: '1rem' }}>Valor Inv.</th>
-                <th style={{ padding: '1rem' }}>Ganancia/Venta</th>
-                <th style={{ padding: '1rem', textAlign: 'right' }}>Acciones</th>
+                <th style={{ padding: '0.65rem 0.75rem', width: '45px' }}>Img</th>
+                <th style={{ padding: '0.65rem 0.75rem' }}>Código</th>
+                <th style={{ padding: '0.65rem 0.75rem' }}>Producto</th>
+                <th style={{ padding: '0.65rem 0.75rem' }}>Categoría</th>
+                <th style={{ padding: '0.65rem 0.75rem' }}>Marca</th>
+                <th style={{ padding: '0.65rem 0.75rem', textAlign: 'center' }}>Stock</th>
+                <th style={{ padding: '0.65rem 0.75rem', textAlign: 'center' }}>Mín.</th>
+                <th style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>Costo</th>
+                <th style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>Precio</th>
+                <th style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>Valor Inv.</th>
+                <th style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>Ganancia</th>
+                <th style={{ 
+                  padding: '0.65rem 0.75rem', 
+                  textAlign: 'right', 
+                  position: 'sticky', 
+                  right: 0, 
+                  background: 'var(--bg-surface)', 
+                  zIndex: 2, 
+                  boxShadow: '-4px 0 8px rgba(0,0,0,0.06)' 
+                }}>
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -505,57 +546,69 @@ const InventoryPage: React.FC = () => {
               ) : (
                 filteredProducts.map(p => (
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                    <td style={{ padding: '1rem' }}>
+                    <td style={{ padding: '0.5rem 0.75rem' }}>
                       {p.imageUrl ? (
-                        <img src={p.imageUrl} alt={p.name} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px' }} />
+                        <img src={p.imageUrl} alt={p.name} style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '4px' }} />
                       ) : (
-                        <div style={{ width: '40px', height: '40px', backgroundColor: 'var(--border-color)', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                          <ImageIcon size={20} />
+                        <div style={{ width: '36px', height: '36px', backgroundColor: 'var(--border-color)', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                          <ImageIcon size={18} />
                         </div>
                       )}
                     </td>
-                    <td style={{ padding: '1rem', fontWeight: 'bold' }}>{p.sku}</td>
-                    <td style={{ padding: '1rem' }}>
+                    <td style={{ padding: '0.5rem 0.75rem', fontWeight: 'bold' }}>{p.sku}</td>
+                    <td style={{ padding: '0.5rem 0.75rem' }}>
                       <div style={{ fontWeight: 600 }}>{p.name}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.unit}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.unit}</div>
                     </td>
-                    <td style={{ padding: '1rem' }}>{p.category?.name || 'N/A'}</td>
-                    <td style={{ padding: '1rem' }}>{p.brand?.name || 'N/A'}</td>
-                    <td style={{ padding: '1rem' }}>
+                    <td style={{ padding: '0.5rem 0.75rem' }}>{p.category?.name || 'N/A'}</td>
+                    <td style={{ padding: '0.5rem 0.75rem' }}>{p.brand?.name || 'N/A'}</td>
+                    <td style={{ padding: '0.5rem 0.75rem', textAlign: 'center' }}>
                       <span style={{ 
                         fontWeight: 'bold', 
-                        color: p.currentStock <= p.minStock ? '#ef4444' : 'inherit'
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: p.currentStock <= p.minStock ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                        color: p.currentStock <= p.minStock ? '#ef4444' : '#10b981'
                       }}>
                         {p.currentStock}
                       </span>
                     </td>
-                    <td style={{ padding: '1rem' }}>{p.minStock}</td>
-                    <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>
+                    <td style={{ padding: '0.5rem 0.75rem', textAlign: 'center', color: 'var(--text-secondary)' }}>{p.minStock}</td>
+                    <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right', color: 'var(--text-secondary)' }}>
                       {formatCurrency(p.costPrice)}
                     </td>
-                    <td style={{ padding: '1rem', color: '#10b981', fontWeight: 600 }}>
+                    <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right', color: '#10b981', fontWeight: 600 }}>
                       {formatCurrency(p.salePrice)}
                     </td>
-                    <td style={{ padding: '1rem', fontWeight: 'bold' }}>
+                    <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right', fontWeight: 'bold' }}>
                       {formatCurrency(p.currentStock * p.costPrice)}
                     </td>
-                    <td style={{ padding: '1rem', color: '#3b82f6', fontWeight: 600 }}>
+                    <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right', color: '#3b82f6', fontWeight: 600 }}>
                       {formatCurrency(p.salePrice - p.costPrice)}
                     </td>
-                    <td style={{ padding: '1rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <button onClick={() => openMovementModal(p)} className="btn btn-secondary" style={{ padding: '0.4rem', marginRight: '0.5rem' }} title="Registrar Movimiento">
-                        <ArrowRightLeft size={16} />
+                    <td style={{ 
+                      padding: '0.5rem 0.75rem', 
+                      textAlign: 'right', 
+                      whiteSpace: 'nowrap',
+                      position: 'sticky', 
+                      right: 0, 
+                      background: 'var(--bg-surface)', 
+                      zIndex: 1, 
+                      boxShadow: '-4px 0 8px rgba(0,0,0,0.06)' 
+                    }}>
+                      <button onClick={() => openMovementModal(p)} className="btn btn-secondary" style={{ padding: '0.35rem 0.45rem', marginRight: '0.35rem' }} title="Registrar Movimiento">
+                        <ArrowRightLeft size={15} />
                       </button>
-                      <button onClick={() => openHistoryModal(p)} className="btn btn-secondary" style={{ padding: '0.4rem', marginRight: '0.5rem' }} title="Ver Historial (Kardex)">
-                        <History size={16} />
+                      <button onClick={() => openHistoryModal(p)} className="btn btn-secondary" style={{ padding: '0.35rem 0.45rem', marginRight: '0.35rem' }} title="Ver Historial (Kardex)">
+                        <History size={15} />
                       </button>
                       {user?.role === 'ADMIN' && (
                         <>
-                          <button onClick={() => handleEditProduct(p)} className="btn btn-secondary" style={{ padding: '0.4rem', marginRight: '0.5rem' }} title="Editar Producto">
-                            <Edit size={16} />
+                          <button onClick={() => handleEditProduct(p)} className="btn btn-secondary" style={{ padding: '0.35rem 0.45rem', marginRight: '0.35rem' }} title="Editar Producto">
+                            <Edit size={15} />
                           </button>
-                          <button onClick={() => handleDeleteById(p.id)} className="btn btn-secondary" style={{ padding: '0.4rem', color: '#ef4444', borderColor: '#ef4444' }} title="Eliminar Producto">
-                            <Trash2 size={16} />
+                          <button onClick={() => handleDeleteById(p.id)} className="btn btn-secondary" style={{ padding: '0.35rem 0.45rem', color: '#ef4444', borderColor: '#ef4444' }} title="Eliminar Producto">
+                            <Trash2 size={15} />
                           </button>
                         </>
                       )}
@@ -568,70 +621,440 @@ const InventoryPage: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL DE MOVIMIENTOS */}
+      {/* MODAL DE MOVIMIENTOS MEJORADO */}
       {showMovementModal && selectedProduct && (
-        <div className={formStyles.modalOverlay}>
-          <div className={formStyles.modalContent}>
-            <div className={formStyles.modalHeader}>
-              <h2 className={formStyles.modalTitle}>Registrar Movimiento</h2>
-              <button onClick={() => setShowMovementModal(false)} className={formStyles.closeButton}><X size={20} /></button>
-            </div>
-            <div className={formStyles.modalBody}>
-              <div style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>{selectedProduct.name}</p>
-                <p style={{ margin: 0, fontSize: '0.875rem' }}>Stock Actual: <span style={{ fontWeight: 'bold' }}>{selectedProduct.currentStock} {selectedProduct.unit}</span></p>
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '0.75rem',
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <form 
+            onSubmit={handleSubmitMovement(onSubmitMovement)}
+            style={{
+              backgroundColor: 'var(--bg-base, #ffffff)',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '540px',
+              maxHeight: 'calc(100vh - 1.5rem)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+              border: '1px solid var(--border-color, #e2e8f0)',
+              position: 'relative'
+            }}
+          >
+            {/* Header Fijo */}
+            <div style={{
+              padding: '1rem 1.25rem',
+              borderBottom: '1px solid var(--border-color, #e2e8f0)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(16, 185, 129, 0.05) 100%)',
+              flexShrink: 0
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffffff',
+                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
+                }}>
+                  <ArrowRightLeft size={20} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text-primary, #1e293b)' }}>
+                    Registrar Movimiento
+                  </h2>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary, #64748b)', margin: 0 }}>
+                    Ajusta o registra entradas y salidas de inventario
+                  </p>
+                </div>
               </div>
 
-              <form onSubmit={handleSubmitMovement(onSubmitMovement)}>
-                <div className={formStyles.formGrid}>
-                  <div className={formStyles.fieldGroup}>
-                    <label className={formStyles.label}>Tipo de Movimiento</label>
-                    <select className={`${formStyles.input} ${movementErrors.movementType ? formStyles.error : ''}`} {...registerMovement('movementType')}>
-                      <optgroup label="Ingresos (+)">
-                        <option value="COMPRA">Entrada por Compra</option>
-                        <option value="AJUSTE_POSITIVO">Ajuste Positivo</option>
-                        <option value="DEVOLUCION">Devolución de Cliente</option>
-                      </optgroup>
-                      <optgroup label="Egresos (-)">
-                        <option value="VENTA">Salida por Venta</option>
-                        <option value="DANADO">Producto Dañado / Merma</option>
-                        <option value="PERDIDO">Pérdida</option>
-                        <option value="ROBADO">Robo</option>
-                        <option value="VENCIDO">Producto Vencido</option>
-                        <option value="AJUSTE_NEGATIVO">Ajuste Negativo</option>
-                      </optgroup>
-                      <optgroup label="Reemplazo Total">
-                        <option value="CONTEO_FISICO">Conteo Físico (Sobrescribe Stock)</option>
-                      </optgroup>
-                    </select>
-                    {movementErrors.movementType && <span className={formStyles.errorMessage}>{movementErrors.movementType.message}</span>}
-                  </div>
-
-                  <div className={formStyles.fieldGroup}>
-                    <label className={formStyles.label}>Motivo Principal</label>
-                    <input type="text" placeholder="Ej: Factura 001, Robo en tienda..." className={formStyles.input} {...registerMovement('reason')} />
-                  </div>
-
-                  <div className={formStyles.fieldGroup}>
-                    <label className={formStyles.label}>Cantidad</label>
-                    <input type="number" className={`${formStyles.input} ${movementErrors.quantity ? formStyles.error : ''}`} {...registerMovement('quantity')} />
-                    {movementErrors.quantity && <span className={formStyles.errorMessage}>{movementErrors.quantity.message}</span>}
-                  </div>
-
-                  <div className={`${formStyles.fieldGroup} ${formStyles.fullWidth}`}>
-                    <label className={formStyles.label}>Observaciones / Notas (Opcional)</label>
-                    <input type="text" placeholder="Ej: Mercadería encontrada en bodega 2" className={formStyles.input} {...registerMovement('notes')} />
-                  </div>
-                </div>
-                <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowMovementModal(false)}>Cancelar</button>
-                  <button type="submit" className="btn btn-primary" disabled={isSubmittingMovement}>
-                    {isSubmittingMovement ? 'Guardando...' : 'Confirmar Movimiento'}
-                  </button>
-                </div>
-              </form>
+              <button
+                type="button"
+                onClick={() => setShowMovementModal(false)}
+                style={{
+                  background: 'rgba(0, 0, 0, 0.05)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary, #64748b)',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <X size={16} />
+              </button>
             </div>
-          </div>
+
+            {/* Cuerpo con Scroll Interno Suave */}
+            <div style={{
+              padding: '1.25rem',
+              overflowY: 'auto',
+              flex: 1,
+              minHeight: 0
+            }}>
+              {/* Card de Información del Producto y Proyección de Stock */}
+              <div style={{
+                background: 'var(--bg-surface, rgba(248, 250, 252, 0.8))',
+                border: '1px solid var(--border-color, #e2e8f0)',
+                borderRadius: '12px',
+                padding: '0.9rem',
+                marginBottom: '1rem'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                  {selectedProduct.imageUrl ? (
+                    <img 
+                      src={selectedProduct.imageUrl} 
+                      alt={selectedProduct.name} 
+                      style={{ width: '42px', height: '42px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-color, #e2e8f0)' }} 
+                    />
+                  ) : (
+                    <div style={{
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '8px',
+                      background: 'rgba(37, 99, 235, 0.1)',
+                      color: '#2563eb',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Package size={20} />
+                    </div>
+                  )}
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <span style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        background: 'rgba(37, 99, 235, 0.1)',
+                        color: '#2563eb',
+                        fontFamily: 'monospace'
+                      }}>
+                        {selectedProduct.sku}
+                      </span>
+                      {selectedProduct.category?.name && (
+                        <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(100, 116, 139, 0.1)', color: 'var(--text-secondary, #64748b)' }}>
+                          {selectedProduct.category.name}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary, #1e293b)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {selectedProduct.name}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Simulador de Stock en Tiempo Real */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: 'var(--bg-base, #ffffff)',
+                  border: '1px solid var(--border-color, #e2e8f0)',
+                  borderRadius: '8px',
+                  padding: '0.6rem 0.85rem',
+                  gap: '0.5rem'
+                }}>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>Stock Actual</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary, #1e293b)' }}>
+                      {selectedProduct.currentStock} <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)' }}>{selectedProduct.unit}</span>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '3px 8px',
+                    borderRadius: '16px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    backgroundColor: isAdditionType ? 'rgba(16, 185, 129, 0.12)' : (isSubtractionType ? 'rgba(239, 68, 68, 0.12)' : 'rgba(59, 130, 246, 0.12)'),
+                    color: isAdditionType ? '#10b981' : (isSubtractionType ? '#ef4444' : '#3b82f6')
+                  }}>
+                    {isAdditionType && <><ArrowUpRight size={14} style={{ marginRight: '2px' }} /> +{Math.abs(watchedQuantity)}</>}
+                    {isSubtractionType && <><ArrowDownRight size={14} style={{ marginRight: '2px' }} /> -{Math.abs(watchedQuantity)}</>}
+                    {!isAdditionType && !isSubtractionType && <><Sliders size={14} style={{ marginRight: '3px' }} /> {watchedQuantity >= 0 ? `+${watchedQuantity}` : watchedQuantity}</>}
+                  </div>
+
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>Proyección Final</div>
+                    <div style={{
+                      fontSize: '1rem',
+                      fontWeight: 800,
+                      color: projectedStock < 0 ? '#ef4444' : (projectedStock <= (selectedProduct.minStock || 0) ? '#f59e0b' : '#10b981')
+                    }}>
+                      {projectedStock} <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)' }}>{selectedProduct.unit}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {projectedStock < 0 && (
+                  <div style={{ marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#ef4444', fontSize: '0.72rem', fontWeight: 600 }}>
+                    <AlertCircle size={13} /> Advertencia: El stock proyectado no puede ser menor a 0.
+                  </div>
+                )}
+              </div>
+
+              {/* Campos del Formulario */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+                
+                {/* Tipo de Movimiento */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.35rem', color: 'var(--text-primary, #1e293b)' }}>
+                    Tipo de Movimiento <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <select 
+                    style={{
+                      width: '100%',
+                      padding: '0.55rem 0.75rem',
+                      borderRadius: '8px',
+                      border: `1px solid ${movementErrors.movementType ? '#ef4444' : 'var(--border-color, #cbd5e1)'}`,
+                      backgroundColor: 'var(--bg-base, #ffffff)',
+                      fontSize: '0.85rem',
+                      fontWeight: 500,
+                      color: 'var(--text-primary, #1e293b)',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                    {...registerMovement('movementType')}
+                  >
+                    <optgroup label="─── INGRESOS / ENTRADAS (+) ───">
+                      <option value="ENTRADA">📦 Entrada General</option>
+                      <option value="COMPRA">🛒 Entrada por Compra</option>
+                      <option value="DEVOLUCION">↩️ Devolución de Cliente</option>
+                    </optgroup>
+                    <optgroup label="─── EGRESOS / SALIDAS (-) ───">
+                      <option value="SALIDA">📤 Salida General / Merma</option>
+                      <option value="VENTA">💰 Salida por Venta</option>
+                    </optgroup>
+                    <optgroup label="─── AJUSTE Y BALANCE (±) ───">
+                      <option value="AJUSTE">⚖️ Ajuste de Inventario / Conteo</option>
+                    </optgroup>
+                  </select>
+                  {movementErrors.movementType && (
+                    <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '0.2rem', display: 'block' }}>
+                      {movementErrors.movementType.message}
+                    </span>
+                  )}
+                </div>
+
+                {/* Cantidad con Steppers rápidos */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary, #1e293b)' }}>
+                      Cantidad a Mover <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary, #64748b)' }}>
+                      Unidad: {selectedProduct.unit}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <input 
+                        type="number"
+                        step="any"
+                        style={{
+                          width: '100%',
+                          padding: '0.55rem 0.75rem',
+                          borderRadius: '8px',
+                          border: `1px solid ${movementErrors.quantity ? '#ef4444' : 'var(--border-color, #cbd5e1)'}`,
+                          backgroundColor: 'var(--bg-base, #ffffff)',
+                          fontSize: '1rem',
+                          fontWeight: 700,
+                          color: 'var(--text-primary, #1e293b)',
+                          outline: 'none'
+                        }}
+                        placeholder="1"
+                        {...registerMovement('quantity')}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.3rem' }}>
+                      {[1, 5, 10].map(val => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => {
+                            const current = Number(watchMovement('quantity') || 0);
+                            setMovementValue('quantity', current + val, { shouldValidate: true });
+                          }}
+                          style={{
+                            padding: '0.45rem 0.65rem',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color, #cbd5e1)',
+                            backgroundColor: 'var(--bg-surface, #f1f5f9)',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            color: 'var(--text-primary, #334155)',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          +{val}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {movementErrors.quantity && (
+                    <span style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: '0.2rem', display: 'block' }}>
+                      {movementErrors.quantity.message}
+                    </span>
+                  )}
+                </div>
+
+                {/* Motivo con Quick-Pills */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.35rem', color: 'var(--text-primary, #1e293b)' }}>
+                    Motivo Principal
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="Ej: Factura de compra, Ajuste mensual, Merma..." 
+                    style={{
+                      width: '100%',
+                      padding: '0.55rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color, #cbd5e1)',
+                      backgroundColor: 'var(--bg-base, #ffffff)',
+                      fontSize: '0.85rem',
+                      color: 'var(--text-primary, #1e293b)',
+                      outline: 'none'
+                    }}
+                    {...registerMovement('reason')} 
+                  />
+
+                  {/* Sugerencias rápidas */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.4rem' }}>
+                    {quickReasons.map(qr => (
+                      <button
+                        key={qr}
+                        type="button"
+                        onClick={() => setMovementValue('reason', qr, { shouldValidate: true })}
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          fontSize: '0.7rem',
+                          border: '1px solid var(--border-color, #cbd5e1)',
+                          backgroundColor: 'var(--bg-surface, rgba(241, 245, 249, 0.6))',
+                          color: 'var(--text-secondary, #64748b)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {qr}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Observaciones / Notas */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.35rem', color: 'var(--text-primary, #1e293b)' }}>
+                    Observaciones / Notas <span style={{ fontWeight: 400, color: 'var(--text-secondary, #64748b)' }}>(Opcional)</span>
+                  </label>
+                  <textarea 
+                    placeholder="Información adicional relevante del movimiento..." 
+                    rows={2} 
+                    style={{
+                      width: '100%',
+                      padding: '0.55rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color, #cbd5e1)',
+                      backgroundColor: 'var(--bg-base, #ffffff)',
+                      fontSize: '0.8rem',
+                      color: 'var(--text-primary, #1e293b)',
+                      outline: 'none',
+                      resize: 'none'
+                    }}
+                    {...registerMovement('notes')} 
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Fijo con Botones de Acción Pinned */}
+            <div style={{
+              padding: '0.85rem 1.25rem',
+              borderTop: '1px solid var(--border-color, #e2e8f0)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '0.75rem',
+              background: 'var(--bg-surface, #ffffff)',
+              flexShrink: 0
+            }}>
+              <button 
+                type="button" 
+                onClick={() => setShowMovementModal(false)}
+                style={{
+                  padding: '0.55rem 1.1rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color, #cbd5e1)',
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-primary, #334155)',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Cancelar
+              </button>
+              <button 
+                type="submit" 
+                disabled={isSubmittingMovement || projectedStock < 0}
+                style={{
+                  padding: '0.55rem 1.25rem',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: (isSubmittingMovement || projectedStock < 0) ? 'not-allowed' : 'pointer',
+                  opacity: (isSubmittingMovement || projectedStock < 0) ? 0.6 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <CheckCircle2 size={16} />
+                {isSubmittingMovement ? 'Guardando...' : 'Confirmar Movimiento'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

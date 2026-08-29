@@ -33,7 +33,7 @@ const PaymentHistoryModal: React.FC<Props> = ({ ar, onClose }) => {
       backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999,
       display: 'flex', alignItems: 'center', justifyContent: 'center'
     }}>
-      <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '500px', padding: '2rem', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: 'min(95vw, 540px)', padding: 'clamp(1rem, 3vw, 2rem)', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <History size={20} color="var(--brand-primary)" /> Historial de Pagos

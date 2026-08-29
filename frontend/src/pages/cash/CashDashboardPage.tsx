@@ -304,8 +304,8 @@ const CashDashboardPage: React.FC = () => {
 
       {/* Modal Abrir Caja */}
       {showOpenModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: 'min(95vw, 440px)', maxHeight: '90vh', overflowY: 'auto', padding: 'clamp(1rem, 3vw, 2rem)' }}>
             <h2 style={{ margin: '0 0 1.5rem 0' }}>Abrir Caja</h2>
             <form onSubmit={handleOpenSession}>
               <div style={{ marginBottom: '1rem' }}>
@@ -327,7 +327,7 @@ const CashDashboardPage: React.FC = () => {
                 <input 
                   type="number" 
                   step="0.01" 
-                  min="0"
+                  min="0" 
                   value={openBalance}
                   onChange={e => setOpenBalance(Number(e.target.value))}
                   style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-glass)', background: 'var(--bg-glass)', color: 'var(--text-primary)' }}
@@ -345,8 +345,8 @@ const CashDashboardPage: React.FC = () => {
 
       {/* Modal Cerrar Caja */}
       {showCloseModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: 'min(95vw, 440px)', maxHeight: '90vh', overflowY: 'auto', padding: 'clamp(1rem, 3vw, 2rem)' }}>
             <h2 style={{ margin: '0 0 1.5rem 0' }}>Cerrar Caja</h2>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>Ingresa el monto de efectivo físico que hay actualmente en caja. El sistema lo comparará con el esperado.</p>
             <form onSubmit={handleCloseSession}>
@@ -373,8 +373,8 @@ const CashDashboardPage: React.FC = () => {
 
       {/* Modal Ingreso/Egreso */}
       {showMovementModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: 'min(95vw, 440px)', maxHeight: '90vh', overflowY: 'auto', padding: 'clamp(1rem, 3vw, 2rem)' }}>
             <h2 style={{ margin: '0 0 1.5rem 0' }}>Registrar {movementType === 'IN' ? 'Ingreso' : 'Egreso'}</h2>
             <form onSubmit={handleMovement}>
               <div style={{ marginBottom: '1rem' }}>

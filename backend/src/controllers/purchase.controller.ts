@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../utils/prisma';
 import { logAudit } from '../services/audit.service';
-
-const prisma = new PrismaClient();
 
 // Utils: Lógica para aplicar los efectos de recibir una compra
 const receivePurchaseInventory = async (tx: any, purchaseId: number, warehouseId: number = 1, userId: number = 1) => {

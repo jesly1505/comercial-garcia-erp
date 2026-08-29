@@ -1,148 +1,105 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../utils/prisma';
 import { logAudit } from '../services/audit.service';
-
-const prisma = new PrismaClient();
+import { adjustProductStock } from '../services/inventory.service';
+import { MovementType } from '@prisma/client';
 
 // Registrar un movimiento de inventario (Kardex)
 export const registerMovement = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { productId, movementType, quantity, notes, reason } = req.body;
-    
-    // Asumimos warehouseId = 1 (Principal) por defecto temporalmente
+    const { productId, movementType, quantity, notes, reason, warehouseId } = req.body;
     const user = (req as any).user;
-    let userId = user ? user.userId : 1; 
-    let warehouseId = 1;
+    const userId = user?.userId || 1;
 
-    // Verificar si existe la bodega, si no, crearla
-    const warehouse = await prisma.warehouse.findFirst();
-    if (warehouse) {
-      warehouseId = warehouse.id;
-    } else {
-      const newWarehouse = await prisma.warehouse.create({ data: { name: 'Bodega Principal' } });
-      warehouseId = newWarehouse.id;
-    }
-
-    // Verificar si el producto existe
-    const product = await prisma.product.findUnique({ where: { id: parseInt(productId) } });
-    if (!product) {
-      res.status(404).json({ error: 'Producto no encontrado' });
+    if (!productId) {
+      res.status(400).json({ error: 'El producto es requerido' });
       return;
     }
 
     const qty = parseInt(quantity);
     if (isNaN(qty) || qty === 0) {
-      res.status(400).json({ error: 'Cantidad inválida' });
+      res.status(400).json({ error: 'La cantidad debe ser un número válido distinto de cero' });
       return;
     }
 
-    // Determinar si suma o resta
-    const type = String(movementType).toUpperCase();
-    const isSum = ['COMPRA', 'DEVOLUCION', 'AJUSTE_ENTRADA'].includes(type);
-    const isSub = ['VENTA', 'TRANSFERENCIA', 'AJUSTE_SALIDA'].includes(type);
-    
-    const stockBefore = product.currentStock;
-    let newStock = stockBefore;
-
-    if (isSum) {
-      newStock += Math.abs(qty);
-    } else if (isSub) {
-      newStock -= Math.abs(qty);
-      if (newStock < 0) {
-        res.status(400).json({ error: 'Operación denegada: El stock no puede ser negativo.' });
-        return;
-      }
-    } else if (type === 'AJUSTE') {
-      newStock += qty; // si qty es + suma, si es - resta
-      if (newStock < 0) {
-        res.status(400).json({ error: 'Operación denegada: El stock no puede ser negativo.' });
-        return;
-      }
-    } else {
-      res.status(400).json({ error: 'Tipo de movimiento inválido' });
+    // Normalizar movementType
+    const normalizedType = String(movementType).toUpperCase() as MovementType;
+    if (!Object.values(MovementType).includes(normalizedType)) {
+      res.status(400).json({ error: `Tipo de movimiento inválido: ${movementType}` });
       return;
     }
 
-    // Generar un referenceNumber automático basado en timestamp
-    const referenceNumber = `MOV-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 100)}`;
-
-    // Ejecutar la actualización en una transacción
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Crear el movimiento
-      const mov = await tx.inventoryMovement.create({
-        data: {
-          referenceNumber,
-          productId: parseInt(productId),
-          warehouseId,
-          userId,
-          movementType: type,
-          quantity: Math.abs(qty),
-          stockBefore,
-          stockAfter: newStock,
-          reason: reason || null,
-          notes: notes || null
-        }
-      });
-
-      // 2. Actualizar el stock del producto
-      await tx.product.update({
-        where: { id: parseInt(productId) },
-        data: { currentStock: newStock }
-      });
-
-      // 3. Upsert Inventory records (relacion bodega-producto)
-      const inventory = await tx.inventory.findUnique({
-        where: { productId_warehouseId: { productId: parseInt(productId), warehouseId } }
-      });
-      if (inventory) {
-        await tx.inventory.update({
-          where: { id: inventory.id },
-          data: { quantity: newStock }
-        });
-      } else {
-        await tx.inventory.create({
-          data: {
-            productId: parseInt(productId),
-            warehouseId,
-            quantity: newStock
-          }
-        });
-      }
-
-      return mov;
+    const { movement, newStock, stockBefore } = await adjustProductStock({
+      productId: parseInt(productId),
+      warehouseId: warehouseId ? parseInt(warehouseId) : undefined,
+      quantity: qty,
+      movementType: normalizedType,
+      userId,
+      reason,
+      notes
     });
 
-    res.status(201).json(result);
-    
-    // Loguear asíncronamente
-    if (user) {
-      logAudit({
-        userId,
-        action: 'STOCK_CHANGE',
-        tableName: 'inventory_movements',
-        recordId: result.id,
-        description: `Movimiento de inventario (${type}): ${qty} unidades del producto ${product.name}`,
-        oldValues: { stock: stockBefore },
-        newValues: { stock: newStock }
-      });
+    try {
+      if (user) {
+        await logAudit({
+          userId,
+          action: 'STOCK_CHANGE',
+          tableName: 'inventory_movements',
+          recordId: movement.id,
+          description: `Movimiento de inventario (${normalizedType}): ${qty} unidades en producto ID ${productId}`,
+          oldValues: { stock: stockBefore },
+          newValues: { stock: newStock }
+        });
+      }
+    } catch (auditErr) {
+      console.error('Error logging audit for movement:', auditErr);
     }
-    
+
+    res.status(201).json(movement);
   } catch (error: any) {
-    res.status(500).json({ error: 'Error al registrar movimiento', details: error.message });
+    res.status(400).json({ error: error.message || 'Error al registrar movimiento' });
   }
 };
 
-// Obtener todo el historial de movimientos (Kardex)
+// Obtener todo el historial de movimientos (Kardex) con paginación
 export const getMovements = async (req: Request, res: Response): Promise<void> => {
   try {
-    const movements = await prisma.inventoryMovement.findMany({
-      include: {
-        product: true,
-        user: true,
-      },
-      orderBy: { createdAt: 'desc' }
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const search = (req.query.search as string) || '';
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { referenceNumber: { contains: search } },
+        { product: { name: { contains: search } } },
+        { product: { sku: { contains: search } } },
+        { reason: { contains: search } }
+      ];
+    }
+
+    const [movements, total] = await Promise.all([
+      prisma.inventoryMovement.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          product: true,
+          user: true,
+          warehouse: true
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.inventoryMovement.count({ where })
+    ]);
+
+    res.json({
+      data: movements,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
     });
-    res.json(movements);
   } catch (error: any) {
     res.status(500).json({ error: 'Error al obtener historial', details: error.message });
   }
@@ -152,11 +109,8 @@ export const getMovements = async (req: Request, res: Response): Promise<void> =
 export const getLowStockAlerts = async (req: Request, res: Response): Promise<void> => {
   try {
     const products = await prisma.product.findMany({
-      where: {
-        isActive: true
-        // SQLite + Prisma no soporta comparar dos columnas (currentStock <= minStock) 
-        // en la misma cláusula where de manera sencilla, lo filtraremos en JS.
-      }
+      where: { isActive: true },
+      include: { category: true, brand: true }
     });
     
     const alerts = products.filter(p => p.currentStock <= p.minStock);
@@ -177,7 +131,7 @@ export const updateMovement = async (req: Request, res: Response): Promise<void>
     });
     res.json(updated);
   } catch (error: any) {
-    res.status(500).json({ error: 'Error al actualizar movimiento', details: error.message });
+    res.status(400).json({ error: 'Error al actualizar movimiento', details: error.message });
   }
 };
 
@@ -226,6 +180,6 @@ export const deleteMovement = async (req: Request, res: Response): Promise<void>
 
     res.json({ message: 'Movimiento eliminado y stock revertido correctamente' });
   } catch (error: any) {
-    res.status(500).json({ error: 'Error al eliminar movimiento', details: error.message });
+    res.status(400).json({ error: error.message || 'Error al eliminar movimiento' });
   }
 };

@@ -49,9 +49,11 @@ const SuppliersPage: React.FC = () => {
   const fetchSuppliers = async () => {
     try {
       const res = await api.get('/suppliers');
-      setSuppliers(res.data);
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setSuppliers(data);
     } catch (error) {
       console.error('Error fetching suppliers:', error);
+      toast.error('Error al cargar proveedores');
     }
   };
 

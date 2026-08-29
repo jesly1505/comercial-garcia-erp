@@ -52,10 +52,12 @@ const CustomersPage: React.FC = () => {
   const fetchCustomers = async () => {
     try {
       const res = await api.get('/customers');
-      setCustomers(res.data);
-      setFilteredCustomers(res.data);
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setCustomers(data);
+      setFilteredCustomers(data);
     } catch (err) {
       console.error('Error fetching customers', err);
+      toast.error('Error al cargar clientes');
     }
   };
 
@@ -173,7 +175,7 @@ const CustomersPage: React.FC = () => {
               </tr>
             ) : (
               filteredCustomers.map(c => {
-                const balance = c.accountsReceivable?.reduce((sum: number, acc: any) => sum + acc.balance, 0) || 0;
+                const balance = c.accountsReceivable?.reduce((sum: number, acc: any) => sum + Number(acc.balance || 0), 0) || 0;
                 return (
                   <tr key={c.id} className={styles.row}>
                     <td className={styles.code}>{c.code?.substring(0, 8)}</td>
@@ -187,12 +189,12 @@ const CustomersPage: React.FC = () => {
                       <div className={styles.finRow}>
                         <span className={styles.finLabel}>Saldo:</span>
                         <strong style={{ color: balance > 0 ? '#ef4444' : '#10b981' }}>
-                          C${balance.toFixed(2)}
+                          C${Number(balance).toFixed(2)}
                         </strong>
                       </div>
                       <div className={styles.finRow}>
                         <span className={styles.finLabel}>Límite:</span>
-                        <span>C${(c.creditLimit || 0).toFixed(2)}</span>
+                        <span>C${Number(c.creditLimit || 0).toFixed(2)}</span>
                       </div>
                     </td>
                     <td>

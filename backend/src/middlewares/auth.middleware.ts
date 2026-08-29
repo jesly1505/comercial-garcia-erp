@@ -1,7 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_fallback_key';
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('FATAL: JWT_SECRET no está configurado en las variables de entorno.');
+  }
+  return secret;
+};
 
 export interface AuthUserPayload {
   userId: number;
@@ -29,7 +35,7 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthUserPayload;
+    const decoded = jwt.verify(token, getJwtSecret()) as AuthUserPayload;
     req.user = decoded;
     next();
   } catch (error) {

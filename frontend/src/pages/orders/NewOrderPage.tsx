@@ -22,7 +22,8 @@ const NewOrderPage: React.FC = () => {
   const fetchCustomers = async () => {
     try {
       const res = await api.get('/customers');
-      setCustomers(res.data.filter((c: any) => c.isActive));
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setCustomers(data.filter((c: any) => c.isActive));
     } catch (error) {
       toast.error('Error al cargar clientes');
     }
@@ -30,8 +31,9 @@ const NewOrderPage: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-      const res = await api.get('/products');
-      setProducts(res.data.filter((p: any) => p.isActive)); // All active products
+      const res = await api.get('/products?all=true');
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setProducts(data.filter((p: any) => p.isActive)); // All active products
     } catch (error) {
       toast.error('Error al cargar productos');
     }
@@ -51,7 +53,7 @@ const NewOrderPage: React.FC = () => {
       setCart([...cart, { 
         productId: product.id, 
         name: product.name, 
-        price: product.salePrice, 
+        price: Number(product.salePrice || 0), 
         quantity: 1,
         currentStock: product.currentStock
       }]);

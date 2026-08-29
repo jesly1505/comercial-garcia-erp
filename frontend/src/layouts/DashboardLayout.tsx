@@ -147,7 +147,7 @@ const DashboardLayout: React.FC = () => {
               <div className={styles.avatar}>{user?.firstName?.charAt(0) || 'U'}</div>
               <div className={styles.userInfo}>
                 <span className={styles.userName}>{user?.firstName} {user?.lastName}</span>
-                <span className={styles.userRole}>{user?.role}</span>
+                <span className={styles.userRole}>{typeof user?.role === 'string' ? user.role : user?.role?.name || 'Usuario'}</span>
               </div>
             </div>
           </div>

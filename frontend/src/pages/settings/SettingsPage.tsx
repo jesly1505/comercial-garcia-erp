@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import toast from 'react-hot-toast';
 import { Save, Building2, Settings2, Database, AlertCircle } from 'lucide-react';
+import api from '../../services/api';
 
 interface SettingsData {
   companyName: string;
@@ -21,7 +22,7 @@ interface SettingsData {
 }
 
 export const SettingsPage: React.FC = () => {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const { setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'company' | 'system' | 'backup'>('company');
   const [loading, setLoading] = useState(true);
@@ -49,12 +50,8 @@ export const SettingsPage: React.FC = () => {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/settings', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!response.ok) throw new Error('Error al cargar configuración');
-      const data = await response.json();
-      setFormData(data);
+      const response = await api.get('/settings');
+      setFormData(response.data);
     } catch (error) {
       toast.error('No se pudo cargar la configuración');
     } finally {
@@ -71,18 +68,8 @@ export const SettingsPage: React.FC = () => {
 
     try {
       setSaving(true);
-      const response = await fetch('http://localhost:3000/api/settings', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (!response.ok) throw new Error('Error al guardar configuración');
-      
-      const data = await response.json();
+      const response = await api.put('/settings', formData);
+      const data = response.data;
       setFormData(data);
       setTheme(data.theme); // Update context theme instantly
       toast.success('Configuración guardada correctamente');
@@ -95,14 +82,10 @@ export const SettingsPage: React.FC = () => {
 
   const handleBackup = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/settings/export', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (!response.ok) throw new Error('Error al generar respaldo');
+      const response = await api.get('/settings/export', { responseType: 'blob' });
       
       // Handle file download
-      const blob = await response.blob();
+      const blob = new Blob([response.data]);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

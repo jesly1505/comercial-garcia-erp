@@ -1,5 +1,6 @@
 import prisma from '../utils/prisma';
 import { z } from 'zod';
+import { CashSessionStatus, CashMovementType, PaymentMethod } from '@prisma/client';
 
 export const openSessionSchema = z.object({
   cashRegisterId: z.number(),
@@ -33,7 +34,7 @@ export const getCashRegisters = async () => {
 
 // Obtener la sesión activa de un usuario (o de una caja)
 export const getActiveSession = async (cashRegisterId?: number) => {
-  const whereClause: any = { status: 'OPEN' };
+  const whereClause: any = { status: CashSessionStatus.OPEN };
   if (cashRegisterId) {
     whereClause.cashRegisterId = cashRegisterId;
   }
@@ -50,9 +51,8 @@ export const getActiveSession = async (cashRegisterId?: number) => {
 
 // Abrir Sesión
 export const openSession = async (userId: number, data: z.infer<typeof openSessionSchema>) => {
-  // Verificar que la caja no esté ya abierta
   const existingSession = await prisma.cashSession.findFirst({
-    where: { cashRegisterId: data.cashRegisterId, status: 'OPEN' }
+    where: { cashRegisterId: data.cashRegisterId, status: CashSessionStatus.OPEN }
   });
 
   if (existingSession) {
@@ -64,7 +64,7 @@ export const openSession = async (userId: number, data: z.infer<typeof openSessi
       cashRegisterId: data.cashRegisterId,
       userId,
       openingBalance: data.openingBalance,
-      status: 'OPEN'
+      status: CashSessionStatus.OPEN
     },
     include: {
       cashRegister: true
@@ -88,22 +88,19 @@ export const getSessionReport = async (sessionId: number) => {
 
   // Sumar ingresos manuales
   const totalIn = session.movements
-    .filter((m: any) => m.type === 'IN')
-    .reduce((sum: number, m: any) => sum + m.amount, 0);
+    .filter((m: any) => m.type === CashMovementType.IN)
+    .reduce((sum: number, m: any) => sum + Number(m.amount), 0);
 
   // Sumar egresos manuales
   const totalOut = session.movements
-    .filter((m: any) => m.type === 'OUT')
-    .reduce((sum: number, m: any) => sum + m.amount, 0);
+    .filter((m: any) => m.type === CashMovementType.OUT)
+    .reduce((sum: number, m: any) => sum + Number(m.amount), 0);
 
   // Sumar ventas en efectivo
-  // Solo contamos pagos de facturas que fueron en efectivo
-  // En nuestro sistema, los invoices de contado se registran al crear (no siempre tienen "Payment")
-  // Así que busquemos Invoices creadas por este usuario en el rango de tiempo de esta sesión
   const invoices = await prisma.invoice.findMany({
     where: {
       userId: session.userId,
-      paymentMethod: 'EFECTIVO',
+      paymentMethod: PaymentMethod.CONTADO,
       status: 'ACTIVA',
       issueDate: {
         gte: session.openedAt,
@@ -112,9 +109,9 @@ export const getSessionReport = async (sessionId: number) => {
     }
   });
 
-  const totalSalesCash = invoices.reduce((sum: number, inv: any) => sum + inv.totalAmount, 0);
+  const totalSalesCash = invoices.reduce((sum: number, inv: any) => sum + Number(inv.totalAmount), 0);
 
-  const expectedBalance = session.openingBalance + totalIn + totalSalesCash - totalOut;
+  const expectedBalance = Number(session.openingBalance) + totalIn + totalSalesCash - totalOut;
 
   return {
     session,
@@ -122,7 +119,7 @@ export const getSessionReport = async (sessionId: number) => {
     totalOut,
     totalSalesCash,
     expectedBalance,
-    difference: session.closingBalance !== null ? session.closingBalance - expectedBalance : null
+    difference: session.closingBalance !== null ? Number(session.closingBalance) - expectedBalance : null
   };
 };
 
@@ -130,14 +127,14 @@ export const getSessionReport = async (sessionId: number) => {
 export const closeSession = async (sessionId: number, data: z.infer<typeof closeSessionSchema>) => {
   const report = await getSessionReport(sessionId);
 
-  if (report.session.status === 'CLOSED') {
+  if (report.session.status === CashSessionStatus.CLOSED) {
     throw new Error('Esta sesión de caja ya está cerrada');
   }
 
   return prisma.cashSession.update({
     where: { id: sessionId },
     data: {
-      status: 'CLOSED',
+      status: CashSessionStatus.CLOSED,
       closedAt: new Date(),
       closingBalance: data.closingBalance,
       expectedBalance: report.expectedBalance
@@ -149,14 +146,16 @@ export const closeSession = async (sessionId: number, data: z.infer<typeof close
 export const createMovement = async (sessionId: number, data: z.infer<typeof createMovementSchema>) => {
   const session = await prisma.cashSession.findUnique({ where: { id: sessionId } });
   
-  if (!session || session.status === 'CLOSED') {
+  if (!session || session.status === CashSessionStatus.CLOSED) {
     throw new Error('No hay una sesión de caja activa para registrar el movimiento');
   }
+
+  const movementType = data.type === 'IN' ? CashMovementType.IN : CashMovementType.OUT;
 
   return prisma.cashMovement.create({
     data: {
       cashSessionId: sessionId,
-      type: data.type,
+      type: movementType,
       amount: data.amount,
       description: data.description
     }

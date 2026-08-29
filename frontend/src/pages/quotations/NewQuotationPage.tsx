@@ -64,10 +64,12 @@ const NewQuotationPage: React.FC = () => {
       try {
         const [custRes, prodRes] = await Promise.all([
           api.get('/customers'),
-          api.get('/products'),
+          api.get('/products?all=true'),
         ]);
-        setCustomers(custRes.data);
-        setProducts(prodRes.data.filter((p: any) => p.isActive));
+        const custData = Array.isArray(custRes.data) ? custRes.data : (custRes.data?.data || []);
+        const prodData = Array.isArray(prodRes.data) ? prodRes.data : (prodRes.data?.data || []);
+        setCustomers(custData);
+        setProducts(prodData.filter((p: any) => p.isActive));
       } catch (err) {
         console.error('Error fetching data:', err);
         toast.error('Error al cargar datos');
@@ -94,11 +96,11 @@ const NewQuotationPage: React.FC = () => {
             productId: d.productId,
             sku: d.product?.sku || '',
             name: d.product?.name || 'Producto',
-            unitPrice: d.unitPrice,
+            unitPrice: Number(d.unitPrice || 0),
             currentStock: d.product?.currentStock || 0,
-            quantity: d.quantity,
-            discount: d.discount || 0,
-            subtotal: d.subtotal,
+            quantity: Number(d.quantity || 1),
+            discount: Number(d.discount || 0),
+            subtotal: Number(d.subtotal || 0),
           }));
           setCart(items);
         } catch (err) {
@@ -113,12 +115,13 @@ const NewQuotationPage: React.FC = () => {
 
   // Add Product to Cart
   const handleAddToCart = (product: any) => {
+    const price = Number(product.salePrice || 0);
     const existingIndex = cart.findIndex((i) => i.productId === product.id);
     if (existingIndex > -1) {
       const updated = [...cart];
       updated[existingIndex].quantity += 1;
       updated[existingIndex].subtotal =
-        updated[existingIndex].quantity * updated[existingIndex].unitPrice - updated[existingIndex].discount;
+        updated[existingIndex].quantity * Number(updated[existingIndex].unitPrice || 0) - Number(updated[existingIndex].discount || 0);
       setCart(updated);
     } else {
       setCart([
@@ -127,11 +130,11 @@ const NewQuotationPage: React.FC = () => {
           productId: product.id,
           sku: product.sku,
           name: product.name,
-          unitPrice: product.salePrice,
+          unitPrice: price,
           currentStock: product.currentStock,
           quantity: 1,
           discount: 0,
-          subtotal: product.salePrice,
+          subtotal: price,
         },
       ]);
     }
@@ -424,7 +427,7 @@ const NewQuotationPage: React.FC = () => {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                       <strong style={{ fontSize: '0.95rem', color: 'var(--primary-color)' }}>
-                        C${p.salePrice.toFixed(2)}
+                        C${Number(p.salePrice || 0).toFixed(2)}
                       </strong>
                       <button
                         type="button"
@@ -583,7 +586,7 @@ const NewQuotationPage: React.FC = () => {
                           />
                         </td>
                         <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: 'bold' }}>
-                          C${item.subtotal.toFixed(2)}
+                          C${Number(item.subtotal || 0).toFixed(2)}
                         </td>
                         <td style={{ padding: '0.5rem', textAlign: 'center' }}>
                           <button
@@ -616,7 +619,7 @@ const NewQuotationPage: React.FC = () => {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>Subtotal:</span>
-                <span style={{ fontWeight: 600 }}>C${subtotal.toFixed(2)}</span>
+                <span style={{ fontWeight: 600 }}>C${Number(subtotal || 0).toFixed(2)}</span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
@@ -628,7 +631,7 @@ const NewQuotationPage: React.FC = () => {
                   />
                   Aplicar IVA (15%):
                 </label>
-                <span>C${tax.toFixed(2)}</span>
+                <span>C${Number(tax || 0).toFixed(2)}</span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
@@ -655,7 +658,7 @@ const NewQuotationPage: React.FC = () => {
                 }}
               >
                 <span>TOTAL:</span>
-                <span style={{ color: 'var(--primary-color)' }}>C${totalAmount.toFixed(2)}</span>
+                <span style={{ color: 'var(--primary-color)' }}>C${Number(totalAmount || 0).toFixed(2)}</span>
               </div>
             </div>
           </div>

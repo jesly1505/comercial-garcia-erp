@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
+import prisma from '../utils/prisma';
 
 // Se mantiene este para cosas que sean estrictamente exclusivas de rol (opcional)
 export const authorizeRole = (roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      // No user – allow unauthenticated access (development mode)
-      return next();
+      res.status(401).json({ error: 'Acceso no autorizado: Usuario no autenticado' });
+      return;
     }
     if (!roles.includes((req.user as any).role)) {
       res.status(403).json({ error: 'No tienes permisos para acceder a esta ruta' });
@@ -15,16 +16,13 @@ export const authorizeRole = (roles: string[]) => {
   };
 };
 
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
-
 export const requirePermission = (permissionCode: string) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {
-  // No user – allow unauthenticated access (development mode)
-  return next();
-}
+        res.status(401).json({ error: 'Acceso no autorizado: Usuario no autenticado' });
+        return;
+      }
 
       // Si el usuario es ADMIN, también podemos dejarlo pasar directamente
       if ((req.user as any).role === 'ADMIN') {

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Search, ChevronDown, ChevronUp, Download, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import dt from './DataTable.module.css';
 
 export interface Column<T> {
@@ -136,7 +136,7 @@ export function DataTable<T extends Record<string, any>>({
     doc.text(fileName, 14, 15);
     doc.setFontSize(10);
     doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 22);
-    (doc as any).autoTable({
+    autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
       startY: 25,

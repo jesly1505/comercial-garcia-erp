@@ -27,7 +27,7 @@ export const SupplierHistoryModal: React.FC<SupplierHistoryModalProps> = ({ supp
   }, [supplier.id]);
 
   const purchaseOrders = details?.purchaseOrders || [];
-  const totalPurchases = purchaseOrders.reduce((sum: number, po: any) => sum + po.totalAmount, 0);
+  const totalPurchases = purchaseOrders.reduce((sum: number, po: any) => sum + Number(po.totalAmount || 0), 0);
 
   return createPortal(
     <div style={{
@@ -43,8 +43,8 @@ export const SupplierHistoryModal: React.FC<SupplierHistoryModalProps> = ({ supp
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Historial de Proveedor</h2>
-            <p style={{ color: 'var(--text-muted)' }}>{supplier.name} {supplier.company ? `(${supplier.company})` : ''}</p>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Historial del Proveedor</h2>
+            <p style={{ color: 'var(--text-muted)' }}>{supplier.name}</p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <X size={24} color="var(--text-secondary)" />
@@ -60,7 +60,7 @@ export const SupplierHistoryModal: React.FC<SupplierHistoryModalProps> = ({ supp
                 <ShoppingBag size={18} /> Total Comprado (Órdenes de Compra)
               </h4>
               <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                C${totalPurchases.toFixed(2)}
+                C${Number(totalPurchases).toFixed(2)}
               </p>
             </div>
 
@@ -100,7 +100,7 @@ export const SupplierHistoryModal: React.FC<SupplierHistoryModalProps> = ({ supp
                             {po.status}
                           </span>
                         </td>
-                        <td style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 'bold' }}>C${po.totalAmount.toFixed(2)}</td>
+                        <td style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 'bold' }}>C${Number(po.totalAmount || 0).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>

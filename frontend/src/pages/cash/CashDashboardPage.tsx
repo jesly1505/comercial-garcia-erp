@@ -108,6 +108,16 @@ const CashDashboardPage: React.FC = () => {
     }
   };
 
+  const escapeHtml = (unsafe: any) => {
+    if (unsafe === undefined || unsafe === null) return '';
+    return String(unsafe)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+
   const printArqueoTicket = (info: any) => {
     const printWindow = window.open('', '_blank', 'width=300,height=600');
     if (!printWindow) return;
@@ -117,8 +127,11 @@ const CashDashboardPage: React.FC = () => {
       : 0;
 
     const html = `
+      <!DOCTYPE html>
       <html>
         <head>
+          <meta charset="utf-8" />
+          <title>Arqueo de Caja</title>
           <style>
             body { font-family: monospace; font-size: 12px; margin: 0; padding: 10px; width: 300px; }
             .center { text-align: center; }
@@ -131,39 +144,39 @@ const CashDashboardPage: React.FC = () => {
           <div class="center bold" style="font-size: 16px;">COMERCIAL GARCÍA</div>
           <div class="center">ARQUEO DE CAJA</div>
           <div class="divider"></div>
-          <div><span class="bold">Fecha:</span> ${new Date().toLocaleString()}</div>
-          <div><span class="bold">Cajero:</span> ${info.session.user?.firstName}</div>
-          <div><span class="bold">Caja:</span> ${info.session.cashRegister?.name}</div>
+          <div><span class="bold">Fecha:</span> ${escapeHtml(new Date().toLocaleString())}</div>
+          <div><span class="bold">Cajero:</span> ${escapeHtml(info.session.user?.firstName || 'Cajero')}</div>
+          <div><span class="bold">Caja:</span> ${escapeHtml(info.session.cashRegister?.name || 'Principal')}</div>
           <div class="divider"></div>
           <div class="flex-between">
             <span>Saldo Inicial:</span>
-            <span>C$${info.session.openingBalance.toFixed(2)}</span>
+            <span>C$${Number(info.session.openingBalance || 0).toFixed(2)}</span>
           </div>
           <div class="flex-between">
             <span>Ventas Efectivo:</span>
-            <span>+ C$${info.totalSalesCash.toFixed(2)}</span>
+            <span>+ C$${Number(info.totalSalesCash || 0).toFixed(2)}</span>
           </div>
           <div class="flex-between">
             <span>Ingresos (Manual):</span>
-            <span>+ C$${info.totalIn.toFixed(2)}</span>
+            <span>+ C$${Number(info.totalIn || 0).toFixed(2)}</span>
           </div>
           <div class="flex-between">
             <span>Egresos (Manual):</span>
-            <span>- C$${info.totalOut.toFixed(2)}</span>
+            <span>- C$${Number(info.totalOut || 0).toFixed(2)}</span>
           </div>
           <div class="divider"></div>
           <div class="flex-between bold" style="font-size: 14px;">
             <span>TOTAL ESPERADO:</span>
-            <span>C$${info.expectedBalance.toFixed(2)}</span>
+            <span>C$${Number(info.expectedBalance || 0).toFixed(2)}</span>
           </div>
           ${info.closingBalance !== undefined ? `
             <div class="flex-between" style="margin-top:10px;">
               <span>TOTAL DECLARADO:</span>
-              <span>C$${info.closingBalance.toFixed(2)}</span>
+              <span>C$${Number(info.closingBalance || 0).toFixed(2)}</span>
             </div>
             <div class="flex-between bold" style="color: ${diff < 0 ? 'red' : 'black'};">
               <span>DIFERENCIA:</span>
-              <span>C$${diff.toFixed(2)}</span>
+              <span>C$${Number(diff).toFixed(2)}</span>
             </div>
           ` : ''}
           <div class="divider"></div>
@@ -213,26 +226,26 @@ const CashDashboardPage: React.FC = () => {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
                 <div style={{ padding: '1rem', background: 'var(--bg-glass)', borderRadius: '8px' }}>
                   <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.25rem' }}>Saldo Inicial</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>C${sessionInfo.session.openingBalance.toFixed(2)}</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>C${Number(sessionInfo.session.openingBalance || 0).toFixed(2)}</div>
                 </div>
                 <div style={{ padding: '1rem', background: 'var(--bg-glass)', borderRadius: '8px' }}>
                   <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.25rem' }}>Ventas en Efectivo</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#10b981' }}>+ C${sessionInfo.totalSalesCash.toFixed(2)}</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#10b981' }}>+ C${Number(sessionInfo.totalSalesCash || 0).toFixed(2)}</div>
                 </div>
                 <div style={{ padding: '1rem', background: 'var(--bg-glass)', borderRadius: '8px' }}>
                   <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.25rem' }}>Ingresos (Manuales)</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#3b82f6' }}>+ C${sessionInfo.totalIn.toFixed(2)}</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#3b82f6' }}>+ C${Number(sessionInfo.totalIn || 0).toFixed(2)}</div>
                 </div>
                 <div style={{ padding: '1rem', background: 'var(--bg-glass)', borderRadius: '8px' }}>
                   <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.25rem' }}>Egresos (Manuales)</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#ef4444' }}>- C${sessionInfo.totalOut.toFixed(2)}</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#ef4444' }}>- C${Number(sessionInfo.totalOut || 0).toFixed(2)}</div>
                 </div>
               </div>
 
               <div style={{ marginTop: '1.5rem', padding: '1.5rem', background: 'rgba(59,130,246,0.1)', borderRadius: '12px', border: '1px solid rgba(59,130,246,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>TOTAL ESPERADO EN CAJA</div>
-                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>C${sessionInfo.expectedBalance.toFixed(2)}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>C${Number(sessionInfo.expectedBalance || 0).toFixed(2)}</div>
                 </div>
                 <Wallet size={48} color="#3b82f6" opacity={0.8} />
               </div>

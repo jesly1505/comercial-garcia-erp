@@ -1,30 +1,40 @@
 import { Request, Response } from 'express';
 import { logAudit } from '../services/audit.service';
-import { notifyAdmins, notifyUser } from '../services/notification.service';
+import { notifyAdmins } from '../services/notification.service';
+import { adjustProductStock } from '../services/inventory.service';
 import prisma from '../utils/prisma';
+import { SalesOrderStatus, InvoiceStatus, MovementType, PaymentMethod, ARStatus } from '@prisma/client';
 
-// Helper for sending error response
-const handleError = (res: Response, error: any, message: string = 'Server error') => {
-  console.error(`[SalesOrderController] ${message}:`, error);
-  res.status(500).json({ error: message, details: error.message });
+const VALID_TRANSITIONS: Record<SalesOrderStatus, SalesOrderStatus[]> = {
+  [SalesOrderStatus.PENDING]: [SalesOrderStatus.CONFIRMED, SalesOrderStatus.CANCELLED],
+  [SalesOrderStatus.CONFIRMED]: [SalesOrderStatus.SHIPPED, SalesOrderStatus.CANCELLED],
+  [SalesOrderStatus.SHIPPED]: [SalesOrderStatus.DELIVERED, SalesOrderStatus.CANCELLED],
+  [SalesOrderStatus.DELIVERED]: [],
+  [SalesOrderStatus.CANCELLED]: []
 };
 
-export const createOrder = async (req: Request, res: Response) => {
+export const createOrder = async (req: Request, res: Response): Promise<void> => {
   try {
     const { customerId, details } = req.body;
-    // details should be an array of { productId, quantity, unitPrice }
+    const user = (req as any).user;
+
+    if (!user) {
+      res.status(401).json({ error: 'Usuario no autenticado' });
+      return;
+    }
     
     if (!customerId || !details || details.length === 0) {
-      return res.status(400).json({ error: 'Customer ID and details are required' });
+      res.status(400).json({ error: 'El ID de cliente y los detalles son requeridos' });
+      return;
     }
 
     let totalAmount = 0;
     const orderDetails = details.map((detail: any) => {
-      const subtotal = detail.quantity * detail.unitPrice;
+      const subtotal = Number(detail.quantity) * Number(detail.unitPrice);
       totalAmount += subtotal;
       return {
-        productId: detail.productId,
-        quantity: detail.quantity,
+        productId: parseInt(detail.productId),
+        quantity: parseInt(detail.quantity),
         unitPrice: detail.unitPrice,
         subtotal
       };
@@ -32,9 +42,9 @@ export const createOrder = async (req: Request, res: Response) => {
 
     const newOrder = await prisma.salesOrder.create({
       data: {
-        customerId,
+        customerId: parseInt(customerId),
         totalAmount,
-        status: 'PENDING',
+        status: SalesOrderStatus.PENDING,
         details: {
           create: orderDetails
         }
@@ -45,131 +55,162 @@ export const createOrder = async (req: Request, res: Response) => {
       }
     });
 
-    const user = (req as any).user;
-    if (user) {
+    try {
       await logAudit({
         userId: user.userId,
         action: 'CREATE',
         tableName: 'sales_orders',
         recordId: newOrder.id,
-        description: `Venta creada: Orden #${newOrder.id} - Cliente: ${newOrder.customer.firstName} ${newOrder.customer.lastName}`,
-        newValues: { totalAmount: newOrder.totalAmount, itemsCount: newOrder.details.length }
+        description: `Orden de venta creada #${newOrder.id} - Cliente: ${newOrder.customer.firstName} ${newOrder.customer.lastName}`,
+        newValues: { totalAmount: Number(newOrder.totalAmount), itemsCount: newOrder.details.length }
       });
+
       await notifyAdmins(
         'Nuevo Pedido Creado',
-        `El usuario ${user.username} ha creado el pedido #${newOrder.id} por $${newOrder.totalAmount}`,
+        `El usuario ${user.username || user.userId} ha creado el pedido #${newOrder.id} por C$${newOrder.totalAmount}`,
         'INFO'
       );
+    } catch (e) {
+      console.error('Audit/Notification error in createOrder:', e);
     }
 
     res.status(201).json(newOrder);
-  } catch (error) {
-    handleError(res, error, 'Failed to create sales order');
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Error al crear orden de venta' });
   }
 };
 
-export const getOrders = async (req: Request, res: Response) => {
+export const getOrders = async (req: Request, res: Response): Promise<void> => {
   try {
-    const orders = await prisma.salesOrder.findMany({
-      include: {
-        customer: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            company: true
-          }
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const skip = (page - 1) * limit;
+
+    const [orders, total] = await Promise.all([
+      prisma.salesOrder.findMany({
+        skip,
+        take: limit,
+        include: {
+          customer: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              company: true
+            }
+          },
+          details: true
         },
-        details: true
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.salesOrder.count()
+    ]);
+
+    res.json({
+      data: orders,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
     });
-    res.json(orders);
-  } catch (error) {
-    handleError(res, error, 'Failed to fetch sales orders');
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al obtener pedidos', details: error.message });
   }
 };
 
-export const getOrderById = async (req: Request, res: Response) => {
+export const getOrderById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const order = await prisma.salesOrder.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: parseInt(id as string) },
       include: {
         customer: true,
         details: {
-          include: {
-            product: true
-          }
+          include: { product: true }
         }
       }
     });
 
     if (!order) {
-      return res.status(404).json({ error: 'Sales order not found' });
+      res.status(404).json({ error: 'Pedido no encontrado' });
+      return;
     }
     res.json(order);
-  } catch (error) {
-    handleError(res, error, 'Failed to fetch sales order');
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al obtener pedido', details: error.message });
   }
 };
 
-export const updateStatus = async (req: Request, res: Response) => {
+export const updateStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { status } = req.body; // PENDING, IN_PROCESS, DELIVERED, CANCELED
+    const targetStatus = String(req.body.status).toUpperCase() as SalesOrderStatus;
+
+    const currentOrder = await prisma.salesOrder.findUnique({ where: { id: parseInt(id as string) } });
+    if (!currentOrder) {
+      res.status(404).json({ error: 'Pedido no encontrado' });
+      return;
+    }
+
+    const allowed = VALID_TRANSITIONS[currentOrder.status];
+    if (!allowed.includes(targetStatus)) {
+      res.status(400).json({
+        error: `Transición de estado inválida: No se puede cambiar de ${currentOrder.status} a ${targetStatus}. Transiciones permitidas: [${allowed.join(', ') || 'ninguna'}]`
+      });
+      return;
+    }
 
     const order = await prisma.salesOrder.update({
-      where: { id: parseInt(id) },
-      data: { status }
+      where: { id: parseInt(id as string) },
+      data: { status: targetStatus }
     });
 
     res.json(order);
-  } catch (error) {
-    handleError(res, error, 'Failed to update sales order status');
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Error al actualizar estado del pedido' });
   }
 };
 
-export const convertToInvoice = async (req: Request, res: Response) => {
+export const convertToInvoice = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id; // Assuming authMiddleware attaches user
+    const user = (req as any).user;
+
+    if (!user) {
+      res.status(401).json({ error: 'Usuario no autenticado para facturar pedido' });
+      return;
+    }
+
+    const userId = user.userId;
 
     const order = await prisma.salesOrder.findUnique({
-      where: { id: parseInt(id) },
-      include: {
-        details: true
-      }
+      where: { id: parseInt(id as string) },
+      include: { details: true }
     });
 
     if (!order) {
-      return res.status(404).json({ error: 'Sales order not found' });
+      res.status(404).json({ error: 'Pedido no encontrado' });
+      return;
     }
 
-    if (order.status === 'CANCELED') {
-      return res.status(400).json({ error: 'Cannot convert a canceled order' });
+    if (order.status === SalesOrderStatus.CANCELLED) {
+      res.status(400).json({ error: 'No se puede facturar un pedido cancelado' });
+      return;
     }
-    
-    // We also need a user to tie the invoice to, default to 1 if not set for safety
-    const finalUserId = userId || 1;
 
-    // Generate unique invoice number
     const invoiceCount = await prisma.invoice.count();
     const invoiceNumber = `INV-${String(invoiceCount + 1).padStart(6, '0')}`;
 
-    // Create Invoice inside a transaction
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Create the Invoice
+      // 1. Crear factura
       const invoice = await tx.invoice.create({
         data: {
           salesOrderId: order.id,
           customerId: order.customerId,
-          userId: finalUserId,
+          userId,
           invoiceNumber,
           totalAmount: order.totalAmount,
-          status: 'ACTIVA',
+          status: InvoiceStatus.ACTIVA,
+          paymentMethod: PaymentMethod.CONTADO,
           details: {
             create: order.details.map(d => ({
               productId: d.productId,
@@ -181,52 +222,49 @@ export const convertToInvoice = async (req: Request, res: Response) => {
         }
       });
 
-      // 2. Update the SalesOrder status to INVOICED or DELIVERED
+      // 2. Actualizar estado del pedido
       await tx.salesOrder.update({
         where: { id: order.id },
-        data: { status: 'ENTREGADO' }
+        data: { status: SalesOrderStatus.DELIVERED }
       });
 
-      // 3. Deduct Inventory
-      for (const detail of order.details) {
-        // Find default warehouse inventory for product
-        const inventory = await tx.inventory.findFirst({
-          where: { productId: detail.productId }
-        });
-
-        if (inventory) {
-          await tx.inventory.update({
-            where: { id: inventory.id },
-            data: { quantity: { decrement: detail.quantity } }
-          });
-          
-          // Also update total stock in Product
-          await tx.product.update({
-            where: { id: detail.productId },
-            data: { currentStock: { decrement: detail.quantity } }
-          });
-
-          // Log movement
-          await tx.inventoryMovement.create({
-            data: {
-              productId: detail.productId,
-              warehouseId: inventory.warehouseId,
-              userId: finalUserId,
-              movementType: 'OUT',
-              quantity: detail.quantity,
-              stockBefore: inventory.quantity,
-              stockAfter: inventory.quantity - detail.quantity,
-              reason: `Factura ${invoiceNumber}`,
-            }
-          });
+      // 3. Crear registro en CxC
+      const ar = await tx.accountsReceivable.create({
+        data: {
+          customerId: order.customerId,
+          invoiceId: invoice.id,
+          totalDebt: order.totalAmount,
+          balance: 0,
+          status: ARStatus.PAID
         }
+      });
+
+      await tx.payment.create({
+        data: {
+          accountReceivableId: ar.id,
+          amount: order.totalAmount,
+          paymentMethod: PaymentMethod.CONTADO
+        }
+      });
+
+      // 4. Descontar inventario centralizadamente
+      for (const detail of order.details) {
+        await adjustProductStock({
+          productId: detail.productId,
+          quantity: detail.quantity,
+          movementType: MovementType.VENTA,
+          userId,
+          reason: `Factura ${invoiceNumber} desde Pedido #${order.id}`,
+          referenceNumber: `FACT-${Date.now().toString().slice(-6)}-${detail.productId}`,
+          tx
+        });
       }
 
       return invoice;
     });
 
     res.json(result);
-  } catch (error) {
-    handleError(res, error, 'Failed to convert sales order to invoice');
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Error al convertir pedido en factura' });
   }
 };

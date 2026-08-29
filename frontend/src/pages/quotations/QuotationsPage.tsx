@@ -92,7 +92,7 @@ const QuotationsPage: React.FC = () => {
   const invoicedCount = quotations.filter((q) => q.status === 'FACTURADA').length;
   const totalAmountSum = quotations
     .filter((q) => q.status !== 'CANCELADA' && q.status !== 'RECHAZADA')
-    .reduce((acc, q) => acc + (q.totalAmount || 0), 0);
+    .reduce((acc, q) => acc + Number(q.totalAmount || 0), 0);
 
   return (
     <div className="animate-fade-in" style={{ paddingBottom: '2rem' }}>
@@ -159,7 +159,7 @@ const QuotationsPage: React.FC = () => {
           </div>
           <div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Total Cotizado</div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>C${totalAmountSum.toFixed(2)}</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>C${Number(totalAmountSum).toFixed(2)}</div>
           </div>
         </div>
       </div>

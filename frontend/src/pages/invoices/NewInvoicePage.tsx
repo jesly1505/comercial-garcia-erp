@@ -38,7 +38,8 @@ const NewInvoicePage: React.FC = () => {
   const fetchCustomers = async () => {
     try {
       const res = await api.get('/customers');
-      setCustomers(res.data.filter((c: any) => c.isActive));
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setCustomers(data.filter((c: any) => c.isActive));
     } catch {
       toast.error('Error al cargar clientes');
     }
@@ -46,8 +47,9 @@ const NewInvoicePage: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-      const res = await api.get('/products');
-      setProducts(res.data.filter((p: any) => p.isActive && p.currentStock > 0));
+      const res = await api.get('/products?all=true');
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setProducts(data.filter((p: any) => p.isActive && p.currentStock > 0));
     } catch {
       toast.error('Error al cargar productos');
     }
@@ -69,7 +71,7 @@ const NewInvoicePage: React.FC = () => {
       setCart([...cart, { 
         productId: product.id, 
         name: product.name, 
-        price: product.salePrice, 
+        price: Number(product.salePrice || 0), 
         quantity: 1,
         maxStock: product.currentStock
       }]);
@@ -239,8 +241,7 @@ const NewInvoicePage: React.FC = () => {
             <div style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}>
               {(() => {
                 const customer = customers.find(c => c.id === selectedCustomer);
-                const limit = customer.creditLimit || 0;
-                // Ideally pendingBalance would be populated here if we fetch it, but it's empty for now.
+                const limit = Number(customer?.creditLimit || 0);
                 return limit > 0 ? (
                   <span style={{ color: 'var(--text-secondary)' }}>Límite de crédito: C${limit.toFixed(2)}</span>
                 ) : (

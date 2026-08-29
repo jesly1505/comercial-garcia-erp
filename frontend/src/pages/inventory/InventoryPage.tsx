@@ -8,9 +8,12 @@ import api from '../../services/api';
 import { Edit, Search, Download, Upload, FileText, Image as ImageIcon, ArrowRightLeft, History, X, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
+import ConfirmModal from '../../components/common/ConfirmModal';
+import TableSkeleton from '../../components/common/TableSkeleton';
+import { formatCurrency } from '../../utils/formatters';
 
 // ==========================
 // SCHEMAS
@@ -51,6 +54,9 @@ const InventoryPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Estados para Movimientos (Kardex)
   const [showMovementModal, setShowMovementModal] = useState(false);
@@ -84,12 +90,17 @@ const InventoryPage: React.FC = () => {
   // FETCH
   // ==========================
   const fetchProducts = async () => {
+    setLoading(true);
     try {
       const res = await api.get('/products');
-      setProducts(res.data);
-      setFilteredProducts(res.data);
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setProducts(data);
+      setFilteredProducts(data);
     } catch (err) {
       console.error('Error fetching products', err);
+      toast.error('Error al cargar productos');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -140,29 +151,28 @@ const InventoryPage: React.FC = () => {
     });
   };
 
-  const handleDeleteProduct = async () => {
+  const handleDeleteProduct = () => {
     if (!editingId) return;
-    if (window.confirm('¿Está seguro de eliminar este producto?')) {
-      try {
-        await api.delete(`/products/${editingId}`);
-        toast.success('Producto eliminado');
-        fetchProducts();
-        setShowForm(false);
-      } catch (err: any) {
-        toast.error(err.response?.data?.error || 'Error al eliminar producto');
-      }
-    }
+    setDeleteConfirmId(editingId);
   };
 
-  const handleDeleteById = async (id: number) => {
-    if (window.confirm('¿Está seguro de eliminar este producto?')) {
-      try {
-        await api.delete(`/products/${id}`);
-        toast.success('Producto eliminado');
-        fetchProducts();
-      } catch (err: any) {
-        toast.error(err.response?.data?.error || 'Error al eliminar producto');
-      }
+  const handleDeleteById = (id: number) => {
+    setDeleteConfirmId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmId) return;
+    setIsDeleting(true);
+    try {
+      await api.delete(`/products/${deleteConfirmId}`);
+      toast.success('Producto eliminado correctamente');
+      fetchProducts();
+      setShowForm(false);
+      setDeleteConfirmId(null);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Error al eliminar producto');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -187,7 +197,8 @@ const InventoryPage: React.FC = () => {
     setShowHistoryModal(true);
     try {
       const res = await api.get('/inventory/movements');
-      const filtered = res.data.filter((m: any) => m.productId === product.id);
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      const filtered = data.filter((m: any) => m.productId === product.id);
       setMovementsHistory(filtered);
     } catch (error) {
       console.error('Error fetching history', error);
@@ -257,12 +268,12 @@ const InventoryPage: React.FC = () => {
 
     filteredProducts.forEach(p => {
       const productData = [
-        p.sku, p.name, `C$${p.salePrice.toFixed(2)}`, p.currentStock.toString(), p.unit, p.isActive ? 'Activo' : 'Inactivo'
+        p.sku, p.name, `C$${Number(p.salePrice || 0).toFixed(2)}`, p.currentStock.toString(), p.unit, p.isActive ? 'Activo' : 'Inactivo'
       ];
       tableRows.push(productData);
     });
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
       startY: 20,
@@ -479,7 +490,13 @@ const InventoryPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={12} style={{ padding: '1rem' }}>
+                    <TableSkeleton rows={5} columns={8} />
+                  </td>
+                </tr>
+              ) : filteredProducts.length === 0 ? (
                 <tr>
                   <td colSpan={12} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                     No hay artículos en el inventario.
@@ -514,16 +531,16 @@ const InventoryPage: React.FC = () => {
                     </td>
                     <td style={{ padding: '1rem' }}>{p.minStock}</td>
                     <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>
-                      C${p.costPrice.toFixed(2)}
+                      {formatCurrency(p.costPrice)}
                     </td>
                     <td style={{ padding: '1rem', color: '#10b981', fontWeight: 600 }}>
-                      C${p.salePrice.toFixed(2)}
+                      {formatCurrency(p.salePrice)}
                     </td>
                     <td style={{ padding: '1rem', fontWeight: 'bold' }}>
-                      C${(p.currentStock * p.costPrice).toFixed(2)}
+                      {formatCurrency(p.currentStock * p.costPrice)}
                     </td>
                     <td style={{ padding: '1rem', color: '#3b82f6', fontWeight: 600 }}>
-                      C${(p.salePrice - p.costPrice).toFixed(2)}
+                      {formatCurrency(p.salePrice - p.costPrice)}
                     </td>
                     <td style={{ padding: '1rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <button onClick={() => openMovementModal(p)} className="btn btn-secondary" style={{ padding: '0.4rem', marginRight: '0.5rem' }} title="Registrar Movimiento">
@@ -662,6 +679,18 @@ const InventoryPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* CONFIRM MODAL */}
+      <ConfirmModal
+        isOpen={deleteConfirmId !== null}
+        title="Eliminar Producto"
+        message="¿Está seguro de que desea eliminar este producto? Si tiene facturas o movimientos asociados, se desactivará lógicamente."
+        confirmText="Sí, Eliminar"
+        variant="danger"
+        isLoading={isDeleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirmId(null)}
+      />
 
     </div>
   );

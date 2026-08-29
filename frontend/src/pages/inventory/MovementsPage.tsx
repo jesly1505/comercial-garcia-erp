@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Search, Download, FileText, ArrowRightLeft, Plus, Edit, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import toast from 'react-hot-toast';
 import formStyles from '../../styles/forms.module.css';
 import { FormActions } from '../../components/ui/FormActions';
@@ -40,8 +40,9 @@ const MovementsPage: React.FC = () => {
   const fetchMovements = async () => {
     try {
       const res = await api.get('/inventory/movements');
-      setMovements(res.data);
-      setFiltered(res.data);
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setMovements(data);
+      setFiltered(data);
     } catch (err) {
       console.error('Error fetching movements', err);
     }
@@ -49,8 +50,9 @@ const MovementsPage: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-      const res = await api.get('/products');
-      setProducts(res.data);
+      const res = await api.get('/products?all=true');
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setProducts(data);
     } catch (err) {
       console.error('Error fetching products', err);
     }
@@ -156,7 +158,7 @@ const MovementsPage: React.FC = () => {
         m.user ? `${m.user.firstName} ${m.user.lastName}` : m.userId
       ]);
     });
-    (doc as any).autoTable({
+    autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
       startY: 20,

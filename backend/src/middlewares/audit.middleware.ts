@@ -20,8 +20,8 @@ export const auditLogMiddleware = (tableName: string) => {
             userId: userId,
             action: action,
             tableName: tableName,
-            recordId: body?.id || null,
-            newValues: req.body ? JSON.stringify(req.body) : null,
+            recordId: body?.id ? Number(body.id) : null,
+            newValues: req.body ? req.body : undefined,
           }
         }).catch(err => console.error('Error al guardar audit log:', err));
       }

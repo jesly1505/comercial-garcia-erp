@@ -29,8 +29,8 @@ export const generateInvoicePDF = (invoice: any) => {
   const tableData = invoice.details.map((d: any) => [
     d.product?.name || 'Producto',
     d.quantity,
-    `C$${d.unitPrice.toFixed(2)}`,
-    `C$${d.subtotal.toFixed(2)}`
+    `C$${Number(d.unitPrice || 0).toFixed(2)}`,
+    `C$${Number(d.subtotal || 0).toFixed(2)}`
   ]);
 
   autoTable(doc, {
@@ -46,24 +46,24 @@ export const generateInvoicePDF = (invoice: any) => {
   // Totals
   let currentY = finalY + 10;
   
-  let subtotalBeforeDiscounts = invoice.totalAmount - (invoice.tax || 0) + (invoice.discount || 0);
+  let subtotalBeforeDiscounts = Number(invoice.totalAmount || 0) - Number(invoice.tax || 0) + Number(invoice.discount || 0);
 
-  doc.text(`Subtotal: C$${subtotalBeforeDiscounts.toFixed(2)}`, 140, currentY);
+  doc.text(`Subtotal: C$${Number(subtotalBeforeDiscounts).toFixed(2)}`, 140, currentY);
   currentY += 7;
 
-  if (invoice.discount > 0) {
-    doc.text(`Descuento: -C$${invoice.discount.toFixed(2)}`, 140, currentY);
+  if (Number(invoice.discount || 0) > 0) {
+    doc.text(`Descuento: -C$${Number(invoice.discount || 0).toFixed(2)}`, 140, currentY);
     currentY += 7;
   }
   
-  if (invoice.tax > 0) {
-    doc.text(`IVA (15%): +C$${invoice.tax.toFixed(2)}`, 140, currentY);
+  if (Number(invoice.tax || 0) > 0) {
+    doc.text(`IVA (15%): +C$${Number(invoice.tax || 0).toFixed(2)}`, 140, currentY);
     currentY += 7;
   }
   
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text(`TOTAL: C$${invoice.totalAmount.toFixed(2)}`, 140, currentY);
+  doc.text(`TOTAL: C$${Number(invoice.totalAmount || 0).toFixed(2)}`, 140, currentY);
 
   return doc;
 };
@@ -84,7 +84,7 @@ export const printInvoiceTicket = (invoice: any) => {
     return;
   }
 
-  let subtotalBeforeDiscounts = invoice.totalAmount - (invoice.tax || 0) + (invoice.discount || 0);
+  let subtotalBeforeDiscounts = Number(invoice.totalAmount || 0) - Number(invoice.tax || 0) + Number(invoice.discount || 0);
 
   const html = `
     <html>
@@ -125,7 +125,7 @@ export const printInvoiceTicket = (invoice: any) => {
               <tr>
                 <td>${d.quantity}</td>
                 <td>${d.product?.name ? d.product.name.substring(0, 15) : 'Producto'}</td>
-                <td class="right">C$${d.subtotal.toFixed(2)}</td>
+                <td class="right">C$${Number(d.subtotal || 0).toFixed(2)}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -133,23 +133,23 @@ export const printInvoiceTicket = (invoice: any) => {
         <div class="divider"></div>
         <div class="flex-between">
           <span>Subtotal:</span>
-          <span>C$${subtotalBeforeDiscounts.toFixed(2)}</span>
+          <span>C$${Number(subtotalBeforeDiscounts).toFixed(2)}</span>
         </div>
-        ${invoice.discount > 0 ? `
+        ${Number(invoice.discount || 0) > 0 ? `
           <div class="flex-between">
             <span>Descuento:</span>
-            <span>-C$${invoice.discount.toFixed(2)}</span>
+            <span>-C$${Number(invoice.discount || 0).toFixed(2)}</span>
           </div>
         ` : ''}
-        ${invoice.tax > 0 ? `
+        ${Number(invoice.tax || 0) > 0 ? `
           <div class="flex-between">
             <span>IVA (15%):</span>
-            <span>+C$${invoice.tax.toFixed(2)}</span>
+            <span>+C$${Number(invoice.tax || 0).toFixed(2)}</span>
           </div>
         ` : ''}
         <div class="flex-between bold" style="font-size: 14px; margin-top: 5px;">
           <span>TOTAL:</span>
-          <span>C$${invoice.totalAmount.toFixed(2)}</span>
+          <span>C$${Number(invoice.totalAmount || 0).toFixed(2)}</span>
         </div>
         <div class="divider"></div>
         <div class="center">¡Gracias por su compra!</div>

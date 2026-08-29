@@ -6,8 +6,8 @@ import { FormActions } from '../../components/ui/FormActions';
 import formStyles from '../../styles/forms.module.css';
 import api from '../../services/api';
 import { 
-  Edit, Search, Download, Upload, FileText, Image as ImageIcon, 
-  ArrowRightLeft, History, X, Trash2, 
+  Search, Download, Upload, FileText, Image as ImageIcon, 
+  ArrowRightLeft, X, Trash2, Eye,
   Sliders, CheckCircle2, AlertCircle, ArrowUpRight, ArrowDownRight, Package
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -18,6 +18,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import TableSkeleton from '../../components/common/TableSkeleton';
 import { formatCurrency } from '../../utils/formatters';
+import { ProductDetailModal } from './ProductDetailModal';
 
 // ==========================
 // SCHEMAS
@@ -62,11 +63,11 @@ const InventoryPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Estados para Movimientos (Kardex)
+  // Estados para Movimientos (Kardex) y Detalle del Producto
   const [showMovementModal, setShowMovementModal] = useState(false);
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailProduct, setDetailProduct] = useState<any>(null);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const [movementsHistory, setMovementsHistory] = useState<any[]>([]);
 
   // Formularios
   const { 
@@ -215,25 +216,17 @@ const InventoryPage: React.FC = () => {
   };
 
   // ==========================
-  // MOVIMIENTOS E HISTORIAL
+  // DETALLE Y MOVIMIENTOS
   // ==========================
+  const openDetailModal = (product: any) => {
+    setDetailProduct(product);
+    setShowDetailModal(true);
+  };
+
   const openMovementModal = (product: any) => {
     setSelectedProduct(product);
     resetMovement();
     setShowMovementModal(true);
-  };
-
-  const openHistoryModal = async (product: any) => {
-    setSelectedProduct(product);
-    setShowHistoryModal(true);
-    try {
-      const res = await api.get('/inventory/movements');
-      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-      const filtered = data.filter((m: any) => m.productId === product.id);
-      setMovementsHistory(filtered);
-    } catch (error) {
-      console.error('Error fetching history', error);
-    }
   };
 
   const onSubmitMovement = async (data: MovementFormValues) => {
@@ -596,21 +589,31 @@ const InventoryPage: React.FC = () => {
                       zIndex: 1, 
                       boxShadow: '-4px 0 8px rgba(0,0,0,0.06)' 
                     }}>
-                      <button onClick={() => openMovementModal(p)} className="btn btn-secondary" style={{ padding: '0.35rem 0.45rem', marginRight: '0.35rem' }} title="Registrar Movimiento">
+                      <button 
+                        onClick={() => openDetailModal(p)} 
+                        className="btn btn-secondary" 
+                        style={{ padding: '0.35rem 0.45rem', marginRight: '0.35rem', color: '#2563eb', borderColor: 'rgba(37, 99, 235, 0.3)', backgroundColor: 'rgba(37, 99, 235, 0.05)' }} 
+                        title="Ver Detalle del Producto"
+                      >
+                        <Eye size={15} />
+                      </button>
+                      <button 
+                        onClick={() => openMovementModal(p)} 
+                        className="btn btn-secondary" 
+                        style={{ padding: '0.35rem 0.45rem', marginRight: '0.35rem' }} 
+                        title="Registrar Movimiento"
+                      >
                         <ArrowRightLeft size={15} />
                       </button>
-                      <button onClick={() => openHistoryModal(p)} className="btn btn-secondary" style={{ padding: '0.35rem 0.45rem', marginRight: '0.35rem' }} title="Ver Historial (Kardex)">
-                        <History size={15} />
-                      </button>
                       {user?.role === 'ADMIN' && (
-                        <>
-                          <button onClick={() => handleEditProduct(p)} className="btn btn-secondary" style={{ padding: '0.35rem 0.45rem', marginRight: '0.35rem' }} title="Editar Producto">
-                            <Edit size={15} />
-                          </button>
-                          <button onClick={() => handleDeleteById(p.id)} className="btn btn-secondary" style={{ padding: '0.35rem 0.45rem', color: '#ef4444', borderColor: '#ef4444' }} title="Eliminar Producto">
-                            <Trash2 size={15} />
-                          </button>
-                        </>
+                        <button 
+                          onClick={() => handleDeleteById(p.id)} 
+                          className="btn btn-secondary" 
+                          style={{ padding: '0.35rem 0.45rem', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)', backgroundColor: 'rgba(239, 68, 68, 0.05)' }} 
+                          title="Eliminar Producto"
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -634,9 +637,14 @@ const InventoryPage: React.FC = () => {
           WebkitBackdropFilter: 'blur(8px)',
           zIndex: 9999,
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '0.75rem',
+          padding: '1rem',
+          paddingTop: '80px',
+          paddingBottom: '1.25rem',
+          boxSizing: 'border-box',
+          overflowY: 'auto',
           animation: 'fadeIn 0.2s ease-out'
         }}>
           <form 
@@ -646,13 +654,15 @@ const InventoryPage: React.FC = () => {
               borderRadius: '16px',
               width: '100%',
               maxWidth: '540px',
-              maxHeight: 'calc(100vh - 1.5rem)',
+              maxHeight: 'calc(100vh - 100px)',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
               border: '1px solid var(--border-color, #e2e8f0)',
-              position: 'relative'
+              position: 'relative',
+              boxSizing: 'border-box',
+              margin: 'auto 0'
             }}
           >
             {/* Header Fijo */}
@@ -1058,50 +1068,14 @@ const InventoryPage: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL DE HISTORIAL (KARDEX) */}
-      {showHistoryModal && selectedProduct && (
-        <div className={formStyles.modalOverlay}>
-          <div className={formStyles.modalContent} style={{ maxWidth: '800px' }}>
-            <div className={formStyles.modalHeader}>
-              <h2 className={formStyles.modalTitle}>Kardex / Historial - {selectedProduct.name}</h2>
-              <button onClick={() => setShowHistoryModal(false)} className={formStyles.closeButton}><X size={20} /></button>
-            </div>
-            <div className={formStyles.modalBody} style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-              {movementsHistory.length === 0 ? (
-                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No hay movimientos registrados para este producto.</p>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
-                      <th style={{ padding: '0.75rem' }}>Fecha</th>
-                      <th style={{ padding: '0.75rem' }}>Tipo</th>
-                      <th style={{ padding: '0.75rem' }}>Cant.</th>
-                      <th style={{ padding: '0.75rem' }}>Notas</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {movementsHistory.map(mov => (
-                      <tr key={mov.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '0.75rem' }}>{new Date(mov.createdAt).toLocaleString()}</td>
-                        <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>
-                          <span style={{
-                            color: ['ENTRADA', 'AJUSTE_POSITIVO', 'DEVOLUCION'].includes(mov.movementType) ? '#10b981' : 
-                                   mov.movementType === 'CONTEO_FISICO' ? '#3b82f6' : '#ef4444'
-                          }}>
-                            {mov.movementType.replace('_', ' ')}
-                          </span>
-                        </td>
-                        <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>{mov.quantity}</td>
-                        <td style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>{mov.notes || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* MODAL DETALLE DEL PRODUCTO */}
+      <ProductDetailModal
+        product={detailProduct}
+        isOpen={showDetailModal}
+        onClose={() => setShowDetailModal(false)}
+        onOpenMovement={(p) => openMovementModal(p)}
+        onEditProduct={user?.role === 'ADMIN' ? (p) => handleEditProduct(p) : undefined}
+      />
 
       {/* CONFIRM MODAL */}
       <ConfirmModal

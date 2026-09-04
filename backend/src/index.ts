@@ -1,4 +1,5 @@
 import express from 'express';
+import helmet from 'helmet';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes';
@@ -30,10 +31,21 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors());
+app.use(helmet());
+app.use(helmet.contentSecurityPolicy({
+  directives: {
+    defaultSrc: ["'self'"],
+    connectSrc: ["'self'", "http://localhost:3000"],
+    scriptSrc: ["'self'"] ,
+    styleSrc: ["'self'", "'unsafe-inline'"],
+    imgSrc: ["'self'", "data:"]
+  }
+}));
 app.use(express.json());
 
 // Servir archivos estáticos (Imágenes subidas)
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/.well-known', express.static(path.join(process.cwd(), '.well-known')));
 
 app.get('/api/health', (req: any, res: any) => {
   res.json({ status: 'OK', message: 'API is running' });
@@ -61,6 +73,14 @@ app.use('/api/quotations', authenticateToken, quotationRoutes);
 
 // Documentación
 setupSwagger(app);
+
+// Servir frontend en producción/unificado
+const frontendPath = path.join(process.cwd(), '../frontend/dist');
+app.use(express.static(frontendPath));
+
+app.use((req, res) => {
+  res.sendFile(path.join(frontendPath, 'index.html'));
+});
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../utils/prisma';
 import { z } from 'zod';
-
-const prisma = new PrismaClient();
 
 const supplierSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),

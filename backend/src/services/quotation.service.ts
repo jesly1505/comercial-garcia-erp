@@ -1,5 +1,7 @@
 import prisma from '../utils/prisma';
 import { z } from 'zod';
+import { QuotationStatus, MovementType, InvoiceStatus, PaymentMethod, ARStatus } from '@prisma/client';
+import { adjustProductStock } from './inventory.service';
 
 export const quotationItemSchema = z.object({
   productId: z.number(),
@@ -18,7 +20,7 @@ export const createQuotationSchema = z.object({
 });
 
 export const updateQuotationSchema = createQuotationSchema.partial().extend({
-  status: z.enum(['PENDIENTE', 'APROBADA', 'RECHAZADA', 'FACTURADA', 'VENCIDA', 'CANCELADA']).optional(),
+  status: z.nativeEnum(QuotationStatus).optional(),
 });
 
 export const generateQuotationNumber = async (): Promise<string> => {
@@ -71,7 +73,7 @@ export const createQuotation = async (userId: number, data: z.infer<typeof creat
         quotationNumber,
         customerId: data.customerId,
         userId,
-        status: 'PENDIENTE',
+        status: QuotationStatus.PENDIENTE,
         subtotal,
         tax,
         discount,
@@ -107,7 +109,7 @@ export const getQuotations = async (filters?: {
   const where: any = {};
 
   if (filters?.status && filters.status !== 'ALL') {
-    where.status = filters.status;
+    where.status = filters.status as QuotationStatus;
   }
 
   if (filters?.customerId) {
@@ -181,11 +183,11 @@ export const updateQuotation = async (id: number, userId: number, data: z.infer<
       throw new Error('Cotización no encontrada');
     }
 
-    if (existing.status === 'FACTURADA') {
+    if (existing.status === QuotationStatus.FACTURADA) {
       throw new Error('No se puede modificar una cotización que ya ha sido facturada');
     }
 
-    if (existing.status === 'CANCELADA') {
+    if (existing.status === QuotationStatus.CANCELADA) {
       throw new Error('No se puede modificar una cotización cancelada');
     }
 
@@ -248,11 +250,11 @@ export const updateQuotation = async (id: number, userId: number, data: z.infer<
   });
 };
 
-export const updateQuotationStatus = async (id: number, status: string, userId: number) => {
+export const updateQuotationStatus = async (id: number, status: QuotationStatus, userId: number) => {
   const existing = await prisma.quotation.findUnique({ where: { id } });
   if (!existing) throw new Error('Cotización no encontrada');
 
-  if (existing.status === 'FACTURADA' && status !== 'FACTURADA') {
+  if (existing.status === QuotationStatus.FACTURADA && status !== QuotationStatus.FACTURADA) {
     throw new Error('No se puede cambiar el estado de una cotización ya facturada');
   }
 
@@ -270,7 +272,7 @@ export const updateQuotationStatus = async (id: number, status: string, userId: 
 export const convertQuotationToInvoice = async (
   quotationId: number,
   userId: number,
-  options?: { paymentMethod?: 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA' | 'CREDITO'; creditDays?: number }
+  options?: { paymentMethod?: 'CONTADO' | 'TARJETA' | 'TRANSFERENCIA' | 'CREDITO' | 'EFECTIVO'; creditDays?: number }
 ) => {
   return prisma.$transaction(async (tx) => {
     const quotation = await tx.quotation.findUnique({
@@ -285,63 +287,35 @@ export const convertQuotationToInvoice = async (
       throw new Error('Cotización no encontrada');
     }
 
-    if (quotation.status === 'FACTURADA') {
+    if (quotation.status === QuotationStatus.FACTURADA) {
       throw new Error('Esta cotización ya fue convertida a Factura');
     }
 
-    if (quotation.status === 'CANCELADA' || quotation.status === 'RECHAZADA') {
+    if (quotation.status === QuotationStatus.CANCELADA || quotation.status === QuotationStatus.RECHAZADA) {
       throw new Error(`No se puede facturar una cotización en estado ${quotation.status}`);
     }
 
-    // 1. Validar Stock disponible de todos los productos
+    // 1. Descontar Inventario y Crear Movimientos centralizadamente
     for (const detail of quotation.details) {
-      if (!detail.product.isActive) {
-        throw new Error(`El producto "${detail.product.name}" está inactivo`);
-      }
-      if (detail.product.currentStock < detail.quantity) {
-        throw new Error(
-          `Stock insuficiente para "${detail.product.name}". Requiere: ${detail.quantity}, Disponible: ${detail.product.currentStock}`
-        );
-      }
+      await adjustProductStock({
+        productId: detail.productId,
+        quantity: detail.quantity,
+        movementType: MovementType.VENTA,
+        userId,
+        reason: `Conversión desde Cotización ${quotation.quotationNumber}`,
+        referenceNumber: `COT-${Date.now().toString().slice(-6)}-${detail.productId}`,
+        tx
+      });
     }
 
-    // 2. Descontar Inventario y Crear Movimientos
-    for (const detail of quotation.details) {
-      await tx.product.update({
-        where: { id: detail.productId },
-        data: { currentStock: detail.product.currentStock - detail.quantity },
-      });
-
-      // Si existe registro en almacén por defecto
-      const inv = await tx.inventory.findFirst({
-        where: { productId: detail.productId },
-      });
-
-      if (inv) {
-        await tx.inventory.update({
-          where: { id: inv.id },
-          data: { quantity: { decrement: detail.quantity } },
-        });
-
-        await tx.inventoryMovement.create({
-          data: {
-            productId: detail.productId,
-            warehouseId: inv.warehouseId,
-            userId,
-            movementType: 'OUT',
-            quantity: detail.quantity,
-            stockBefore: inv.quantity,
-            stockAfter: Math.max(0, inv.quantity - detail.quantity),
-            reason: `Conversión desde Cotización ${quotation.quotationNumber}`,
-          },
-        });
-      }
-    }
-
-    // 3. Crear Factura
+    // 2. Crear Factura
     const invoiceCount = await tx.invoice.count();
     const invoiceNumber = `INV-${String(invoiceCount + 1).padStart(6, '0')}`;
-    const paymentMethod = options?.paymentMethod || 'EFECTIVO';
+    
+    let pm: PaymentMethod = PaymentMethod.CONTADO;
+    if (options?.paymentMethod === 'CREDITO') pm = PaymentMethod.CREDITO;
+    else if (options?.paymentMethod === 'TARJETA') pm = PaymentMethod.TARJETA;
+    else if (options?.paymentMethod === 'TRANSFERENCIA') pm = PaymentMethod.TRANSFERENCIA;
 
     const invoice = await tx.invoice.create({
       data: {
@@ -352,8 +326,8 @@ export const convertQuotationToInvoice = async (
         totalAmount: quotation.totalAmount,
         tax: quotation.tax,
         discount: quotation.discount,
-        paymentMethod,
-        status: 'ACTIVA',
+        paymentMethod: pm,
+        status: InvoiceStatus.ACTIVA,
         details: {
           create: quotation.details.map((d: any) => ({
             productId: d.productId,
@@ -370,14 +344,14 @@ export const convertQuotationToInvoice = async (
       },
     });
 
-    // 4. Actualizar Estado de la Cotización
+    // 3. Actualizar Estado de la Cotización
     await tx.quotation.update({
       where: { id: quotation.id },
-      data: { status: 'FACTURADA' },
+      data: { status: QuotationStatus.FACTURADA },
     });
 
-    // 5. Cuentas por Cobrar / Pagos
-    if (paymentMethod === 'CREDITO') {
+    // 4. Cuentas por Cobrar / Pagos
+    if (pm === PaymentMethod.CREDITO) {
       const days = options?.creditDays && [8, 15, 30].includes(options.creditDays) ? options.creditDays : 30;
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + days);
@@ -388,7 +362,7 @@ export const convertQuotationToInvoice = async (
           invoiceId: invoice.id,
           totalDebt: quotation.totalAmount,
           balance: quotation.totalAmount,
-          status: 'PENDING',
+          status: ARStatus.PENDING,
           dueDate,
         },
       });
@@ -399,7 +373,7 @@ export const convertQuotationToInvoice = async (
           invoiceId: invoice.id,
           totalDebt: quotation.totalAmount,
           balance: 0,
-          status: 'PAID',
+          status: ARStatus.PAID,
         },
       });
 
@@ -407,7 +381,7 @@ export const convertQuotationToInvoice = async (
         data: {
           accountReceivableId: ar.id,
           amount: quotation.totalAmount,
-          paymentMethod,
+          paymentMethod: pm,
         },
       });
     }
@@ -420,7 +394,7 @@ export const deleteQuotation = async (id: number, userId: number) => {
   const existing = await prisma.quotation.findUnique({ where: { id } });
   if (!existing) throw new Error('Cotización no encontrada');
 
-  if (existing.status === 'FACTURADA') {
+  if (existing.status === QuotationStatus.FACTURADA) {
     throw new Error('No se puede eliminar una cotización facturada');
   }
 

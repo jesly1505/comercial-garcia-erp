@@ -9,6 +9,7 @@ import { CustomerHistoryModal } from './CustomerHistoryModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { Modal } from '../../components/ui/Modal';
 import { ConfirmModal } from '../../components/ui/ConfirmModal';
+import Pagination from '../../components/common/Pagination';
 import styles from './CustomersPage.module.css';
 
 const customerSchema = z.object({
@@ -33,6 +34,8 @@ const CustomersPage: React.FC = () => {
   const [customers, setCustomers] = useState<any[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -45,17 +48,19 @@ const CustomersPage: React.FC = () => {
   const { hasPermission } = useAuth();
 
   const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<CustomerFormValues>({
-    resolver: zodResolver(customerSchema),
+    resolver: zodResolver(customerSchema) as any,
     defaultValues: { isActive: true, creditLimit: 0 },
   });
 
   const fetchCustomers = async () => {
     try {
       const res = await api.get('/customers');
-      setCustomers(res.data);
-      setFilteredCustomers(res.data);
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setCustomers(data);
+      setFilteredCustomers(data);
     } catch (err) {
       console.error('Error fetching customers', err);
+      toast.error('Error al cargar clientes');
     }
   };
 
@@ -73,6 +78,7 @@ const CustomersPage: React.FC = () => {
         (c.company && c.company.toLowerCase().includes(lower))
       ));
     }
+    setCurrentPage(1);
   }, [searchTerm, customers]);
 
   const onSubmit = async (data: CustomerFormValues) => {
@@ -172,8 +178,10 @@ const CustomersPage: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              filteredCustomers.map(c => {
-                const balance = c.accountsReceivable?.reduce((sum: number, acc: any) => sum + acc.balance, 0) || 0;
+              filteredCustomers
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map(c => {
+                const balance = c.accountsReceivable?.reduce((sum: number, acc: any) => sum + Number(acc.balance || 0), 0) || 0;
                 return (
                   <tr key={c.id} className={styles.row}>
                     <td className={styles.code}>{c.code?.substring(0, 8)}</td>
@@ -187,12 +195,12 @@ const CustomersPage: React.FC = () => {
                       <div className={styles.finRow}>
                         <span className={styles.finLabel}>Saldo:</span>
                         <strong style={{ color: balance > 0 ? '#ef4444' : '#10b981' }}>
-                          C${balance.toFixed(2)}
+                          C${Number(balance).toFixed(2)}
                         </strong>
                       </div>
                       <div className={styles.finRow}>
                         <span className={styles.finLabel}>Límite:</span>
-                        <span>C${(c.creditLimit || 0).toFixed(2)}</span>
+                        <span>C${Number(c.creditLimit || 0).toFixed(2)}</span>
                       </div>
                     </td>
                     <td>
@@ -219,6 +227,14 @@ const CustomersPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredCustomers.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {/* ─── Customer Form Modal ─── */}
       <Modal

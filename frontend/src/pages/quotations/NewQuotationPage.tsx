@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
   Plus, Trash2, Search, ArrowLeft, Save, 
-  FileText, Calendar, User, Package, Download 
+  FileText, Calendar, User, Package, Download
 } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -51,6 +51,50 @@ const NewQuotationPage: React.FC = () => {
     email: '',
   });
 
+  const handleSelectEventualCustomer = async () => {
+    const eventual = customers.find(c => 
+      c.documentNumber === '000-000000-0000X' || 
+      c.documentNumber === 'EVENTUAL' || 
+      (c.firstName?.toLowerCase().includes('cliente') && c.lastName?.toLowerCase().includes('eventual'))
+    );
+
+    if (eventual) {
+      setSelectedCustomerId(eventual.id);
+      toast.success('Cliente Eventual seleccionado');
+      return;
+    }
+
+    try {
+      const res = await api.post('/customers', {
+        firstName: 'Cliente',
+        lastName: 'Eventual',
+        documentNumber: '000-000000-0000X',
+        phone: '0000-0000',
+        isActive: true,
+        creditLimit: 0
+      });
+      const custRes = await api.get('/customers');
+      const custData = Array.isArray(custRes.data) ? custRes.data : (custRes.data?.data || []);
+      setCustomers(custData);
+      setSelectedCustomerId(res.data.id);
+      toast.success('Cliente Eventual creado y seleccionado');
+    } catch (err: any) {
+      const custRes = await api.get('/customers');
+      const custData = Array.isArray(custRes.data) ? custRes.data : (custRes.data?.data || []);
+      setCustomers(custData);
+      const existing = custData.find((c: any) => 
+        c.documentNumber === '000-000000-0000X' || 
+        (c.firstName?.toLowerCase().includes('cliente') && c.lastName?.toLowerCase().includes('eventual'))
+      );
+      if (existing) {
+        setSelectedCustomerId(existing.id);
+        toast.success('Cliente Eventual seleccionado');
+      } else {
+        toast.error('No se pudo seleccionar el cliente eventual');
+      }
+    }
+  };
+
   // Calculate default validUntil date
   useEffect(() => {
     const d = new Date();
@@ -64,10 +108,12 @@ const NewQuotationPage: React.FC = () => {
       try {
         const [custRes, prodRes] = await Promise.all([
           api.get('/customers'),
-          api.get('/products'),
+          api.get('/products?all=true'),
         ]);
-        setCustomers(custRes.data);
-        setProducts(prodRes.data.filter((p: any) => p.isActive));
+        const custData = Array.isArray(custRes.data) ? custRes.data : (custRes.data?.data || []);
+        const prodData = Array.isArray(prodRes.data) ? prodRes.data : (prodRes.data?.data || []);
+        setCustomers(custData);
+        setProducts(prodData.filter((p: any) => p.isActive));
       } catch (err) {
         console.error('Error fetching data:', err);
         toast.error('Error al cargar datos');
@@ -94,11 +140,11 @@ const NewQuotationPage: React.FC = () => {
             productId: d.productId,
             sku: d.product?.sku || '',
             name: d.product?.name || 'Producto',
-            unitPrice: d.unitPrice,
+            unitPrice: Number(d.unitPrice || 0),
             currentStock: d.product?.currentStock || 0,
-            quantity: d.quantity,
-            discount: d.discount || 0,
-            subtotal: d.subtotal,
+            quantity: Number(d.quantity || 1),
+            discount: Number(d.discount || 0),
+            subtotal: Number(d.subtotal || 0),
           }));
           setCart(items);
         } catch (err) {
@@ -113,12 +159,13 @@ const NewQuotationPage: React.FC = () => {
 
   // Add Product to Cart
   const handleAddToCart = (product: any) => {
+    const price = Number(product.salePrice || 0);
     const existingIndex = cart.findIndex((i) => i.productId === product.id);
     if (existingIndex > -1) {
       const updated = [...cart];
       updated[existingIndex].quantity += 1;
       updated[existingIndex].subtotal =
-        updated[existingIndex].quantity * updated[existingIndex].unitPrice - updated[existingIndex].discount;
+        updated[existingIndex].quantity * Number(updated[existingIndex].unitPrice || 0) - Number(updated[existingIndex].discount || 0);
       setCart(updated);
     } else {
       setCart([
@@ -127,11 +174,11 @@ const NewQuotationPage: React.FC = () => {
           productId: product.id,
           sku: product.sku,
           name: product.name,
-          unitPrice: product.salePrice,
+          unitPrice: price,
           currentStock: product.currentStock,
           quantity: 1,
           discount: 0,
-          subtotal: product.salePrice,
+          subtotal: price,
         },
       ]);
     }
@@ -297,14 +344,34 @@ const NewQuotationPage: React.FC = () => {
               <h3 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <User size={18} color="#c59b6d" /> 1. Datos del Cliente
               </h3>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem' }}
-                onClick={() => setShowNewCustomerModal(true)}
-              >
-                <Plus size={14} style={{ marginRight: '0.3rem' }} /> Nuevo Cliente
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={handleSelectEventualCustomer}
+                  style={{
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    padding: '0.35rem 0.65rem',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(234, 179, 8, 0.4)',
+                    backgroundColor: 'rgba(234, 179, 8, 0.12)',
+                    color: '#d97706',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="Seleccionar o crear rápidamente un Cliente Eventual"
+                >
+                  Cliente Eventual
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem' }}
+                  onClick={() => setShowNewCustomerModal(true)}
+                >
+                  <Plus size={14} style={{ marginRight: '0.3rem' }} /> Nuevo Cliente
+                </button>
+              </div>
             </div>
 
             <div style={{ marginBottom: '1rem' }}>
@@ -424,7 +491,7 @@ const NewQuotationPage: React.FC = () => {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                       <strong style={{ fontSize: '0.95rem', color: 'var(--primary-color)' }}>
-                        C${p.salePrice.toFixed(2)}
+                        C${Number(p.salePrice || 0).toFixed(2)}
                       </strong>
                       <button
                         type="button"
@@ -583,7 +650,7 @@ const NewQuotationPage: React.FC = () => {
                           />
                         </td>
                         <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: 'bold' }}>
-                          C${item.subtotal.toFixed(2)}
+                          C${Number(item.subtotal || 0).toFixed(2)}
                         </td>
                         <td style={{ padding: '0.5rem', textAlign: 'center' }}>
                           <button
@@ -616,7 +683,7 @@ const NewQuotationPage: React.FC = () => {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>Subtotal:</span>
-                <span style={{ fontWeight: 600 }}>C${subtotal.toFixed(2)}</span>
+                <span style={{ fontWeight: 600 }}>C${Number(subtotal || 0).toFixed(2)}</span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
@@ -628,7 +695,7 @@ const NewQuotationPage: React.FC = () => {
                   />
                   Aplicar IVA (15%):
                 </label>
-                <span>C${tax.toFixed(2)}</span>
+                <span>C${Number(tax || 0).toFixed(2)}</span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
@@ -655,7 +722,7 @@ const NewQuotationPage: React.FC = () => {
                 }}
               >
                 <span>TOTAL:</span>
-                <span style={{ color: 'var(--primary-color)' }}>C${totalAmount.toFixed(2)}</span>
+                <span style={{ color: 'var(--primary-color)' }}>C${Number(totalAmount || 0).toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -686,7 +753,25 @@ const NewQuotationPage: React.FC = () => {
               borderRadius: '12px',
             }}
           >
-            <h3 style={{ margin: '0 0 1rem 0' }}>Registrar Nuevo Cliente</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0 }}>Registrar Nuevo Cliente</h3>
+              <button
+                type="button"
+                onClick={() => setNewCustomer({ firstName: 'Cliente', lastName: 'Eventual', company: 'Consumidor Final', documentNumber: '000-000000-0000X', phone: '0000-0000', email: '' })}
+                style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  padding: '0.3rem 0.6rem',
+                  borderRadius: '6px',
+                  border: '1px dashed #d97706',
+                  backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                  color: '#d97706',
+                  cursor: 'pointer'
+                }}
+              >
+                Autocompletar Eventual
+              </button>
+            </div>
             <form onSubmit={handleCreateCustomer}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
                 <div>

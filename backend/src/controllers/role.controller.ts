@@ -1,7 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../utils/prisma';
 
 // Obtener todos los roles con sus permisos
 export const getRoles = async (req: Request, res: Response): Promise<void> => {

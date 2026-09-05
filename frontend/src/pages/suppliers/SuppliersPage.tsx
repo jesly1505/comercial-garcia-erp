@@ -9,6 +9,7 @@ import { SupplierHistoryModal } from './SupplierHistoryModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { Modal } from '../../components/ui/Modal';
 import { ConfirmModal } from '../../components/ui/ConfirmModal';
+import Pagination from '../../components/common/Pagination';
 import sStyles from './SuppliersPage.module.css';
 
 const supplierSchema = z.object({
@@ -28,6 +29,8 @@ const SuppliersPage: React.FC = () => {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showInactive, setShowInactive] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -40,7 +43,7 @@ const SuppliersPage: React.FC = () => {
   const { user } = useAuth();
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<SupplierFormValues>({
-    resolver: zodResolver(supplierSchema),
+    resolver: zodResolver(supplierSchema) as any,
     defaultValues: { isActive: true },
   });
 
@@ -49,9 +52,11 @@ const SuppliersPage: React.FC = () => {
   const fetchSuppliers = async () => {
     try {
       const res = await api.get('/suppliers');
-      setSuppliers(res.data);
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setSuppliers(data);
     } catch (error) {
       console.error('Error fetching suppliers:', error);
+      toast.error('Error al cargar proveedores');
     }
   };
 
@@ -155,7 +160,9 @@ const SuppliersPage: React.FC = () => {
             {filteredSuppliers.length === 0 ? (
               <tr><td colSpan={5} className={sStyles.empty}>No se encontraron proveedores</td></tr>
             ) : (
-              filteredSuppliers.map(s => (
+              filteredSuppliers
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map(s => (
                 <tr key={s.id} className={sStyles.row}>
                   <td className={sStyles.code}>{s.code}</td>
                   <td>
@@ -196,6 +203,14 @@ const SuppliersPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredSuppliers.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {/* Supplier Form Modal */}
       <Modal

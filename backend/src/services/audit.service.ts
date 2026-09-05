@@ -12,8 +12,6 @@ export interface AuditLogData {
 
 export const logAudit = async (data: AuditLogData) => {
   try {
-    // Evitar que el registro de auditoría bloquee el hilo principal esperando su resultado.
-    // Usamos promise pero no hacemos throw si falla, solo console.error
     await prisma.auditLog.create({
       data: {
         userId: data.userId,
@@ -21,8 +19,8 @@ export const logAudit = async (data: AuditLogData) => {
         tableName: data.tableName,
         recordId: data.recordId,
         description: data.description,
-        oldValues: data.oldValues ? JSON.stringify(data.oldValues) : null,
-        newValues: data.newValues ? JSON.stringify(data.newValues) : null,
+        oldValues: data.oldValues !== undefined ? data.oldValues : undefined,
+        newValues: data.newValues !== undefined ? data.newValues : undefined,
       },
     });
   } catch (error) {

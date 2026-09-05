@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, User, Shield, Key } from 'lucide-react';
+import { Save, User, Shield } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { Modal } from '../../components/ui/Modal';

@@ -198,7 +198,7 @@ export const getBestSellersReport = async (startDate?: Date, endDate?: Date) => 
       totals[d.productId] = { name: d.product.name, sku: d.product.sku, qty: 0, total: 0 };
     }
     totals[d.productId].qty += d.quantity;
-    totals[d.productId].total += d.subtotal;
+    totals[d.productId].total += Number(d.subtotal);
   });
 
   return Object.values(totals)

@@ -1,119 +1,108 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { 
+  getProducts as getProductsService, 
+  getProductById as getProductByIdService, 
+  createProduct as createProductService, 
+  updateProduct as updateProductService, 
+  deleteProduct as deleteProductService,
+  productSchema 
+} from '../services/product.service';
 import { logAudit } from '../services/audit.service';
+import { ZodError } from 'zod';
 
-const prisma = new PrismaClient();
-
-// Obtener todos los productos
+// Obtener todos los productos (con paginación y búsqueda opcional)
 export const getProducts = async (req: Request, res: Response): Promise<void> => {
   try {
-    const products = await prisma.product.findMany({
-      include: {
-        category: true,
-        brand: true,
-      },
-      orderBy: { id: 'asc' },
-    });
-    res.json(products);
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const search = (req.query.search as string) || '';
+    const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
+
+    // Si el cliente pide lista plana sin paginación (ej: dropdowns)
+    if (req.query.all === 'true') {
+      const result = await getProductsService(1, 10000, search, categoryId);
+      res.json(result.data);
+      return;
+    }
+
+    const result = await getProductsService(page, limit, search, categoryId);
+    res.json(result);
   } catch (error: any) {
     res.status(500).json({ error: 'Error al obtener productos', details: error.message });
   }
 };
 
-// Crear nuevo producto
+// Obtener producto por ID
+export const getProductById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const product = await getProductByIdService(parseInt(id as string));
+    res.json(product);
+  } catch (error: any) {
+    res.status(404).json({ error: error.message || 'Producto no encontrado' });
+  }
+};
+
+// Crear nuevo producto con validación Zod
 export const createProduct = async (req: Request, res: Response): Promise<void> => {
   try {
-    const data = req.body;
-    
-    // Asumiremos la categoría 1 por defecto por ahora (hasta tener módulo de categorías)
-    let categoryId = 1;
-    const categoryExists = await prisma.category.findUnique({ where: { id: 1 } });
-    if (!categoryExists) {
-      const newCat = await prisma.category.create({ data: { name: 'General' } });
-      categoryId = newCat.id;
-    }
-
-    const product = await prisma.product.create({
-      data: {
-        categoryId,
-        sku: data.sku,
-        name: data.name,
-        costPrice: data.costPrice,
-        salePrice: data.salePrice,
-        currentStock: data.currentStock || 0,
-        minStock: data.minStock || 5,
-        unit: data.unit || 'UNIDAD',
-        imageUrl: data.imageUrl,
-        isActive: data.isActive !== undefined ? data.isActive : true,
-      }
-    });
+    const validatedData = productSchema.parse(req.body);
+    const product = await createProductService(validatedData);
 
     const user = (req as any).user;
     if (user) {
-      await logAudit({
-        userId: user.userId,
-        action: 'CREATE',
-        tableName: 'products',
-        recordId: product.id,
-        description: `Producto creado: ${product.name} (SKU: ${product.sku})`
-      });
+      try {
+        await logAudit({
+          userId: user.userId,
+          action: 'CREATE',
+          tableName: 'products',
+          recordId: product.id,
+          description: `Producto creado: ${product.name} (SKU: ${product.sku})`
+        });
+      } catch (auditErr) {
+        console.error('Error logging audit for product create:', auditErr);
+      }
     }
 
     res.status(201).json(product);
   } catch (error: any) {
-    res.status(500).json({ error: 'Error al crear producto', details: error.message });
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: error.issues?.[0]?.message || 'Error de validación' });
+    } else {
+      res.status(400).json({ error: error.message || 'Error al crear producto' });
+    }
   }
 };
 
-// Actualizar producto
+// Actualizar producto con validación Zod
 export const updateProduct = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const data = req.body;
-    
-    const oldProduct = await prisma.product.findUnique({ where: { id: parseInt(id as string) } });
-
-    const product = await prisma.product.update({
-      where: { id: parseInt(id as string) },
-      data: {
-        sku: data.sku,
-        name: data.name,
-        costPrice: data.costPrice,
-        salePrice: data.salePrice,
-        currentStock: data.currentStock,
-        minStock: data.minStock,
-        unit: data.unit,
-        imageUrl: data.imageUrl,
-        isActive: data.isActive,
-      }
-    });
+    const validatedData = productSchema.parse(req.body);
+    const product = await updateProductService(parseInt(id as string), validatedData);
 
     const user = (req as any).user;
-    if (user && oldProduct) {
-      if (oldProduct.salePrice !== product.salePrice) {
+    if (user) {
+      try {
         await logAudit({
           userId: user.userId,
-          action: 'PRICE_CHANGE',
+          action: 'UPDATE',
           tableName: 'products',
           recordId: product.id,
-          description: `Cambio de precio de producto: ${product.name}`,
-          oldValues: { salePrice: oldProduct.salePrice },
-          newValues: { salePrice: product.salePrice }
+          description: `Producto modificado: ${product.name}`
         });
+      } catch (auditErr) {
+        console.error('Error logging audit for product update:', auditErr);
       }
-      
-      await logAudit({
-        userId: user.userId,
-        action: 'UPDATE',
-        tableName: 'products',
-        recordId: product.id,
-        description: `Producto modificado: ${product.name}`
-      });
     }
 
     res.json(product);
   } catch (error: any) {
-    res.status(500).json({ error: 'Error al actualizar producto', details: error.message });
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: error.issues?.[0]?.message || 'Error de validación' });
+    } else {
+      res.status(400).json({ error: error.message || 'Error al actualizar producto' });
+    }
   }
 };
 
@@ -121,34 +110,25 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
 export const deleteProduct = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    
-    // Baja lógica si hay movimientos o detalles de factura
-    const invoices = await prisma.invoiceDetail.count({ where: { productId: parseInt(id as string) } });
-    const movements = await prisma.inventoryMovement.count({ where: { productId: parseInt(id as string) } });
-    
-    if (invoices > 0 || movements > 0) {
-      await prisma.product.update({
-        where: { id: parseInt(id as string) },
-        data: { isActive: false }
-      });
-      res.json({ message: 'Producto desactivado (no eliminado físicamente por integridad)' });
-    } else {
-      await prisma.product.delete({ where: { id: parseInt(id as string) } });
-      
-      const user = (req as any).user;
-      if (user) {
+    const result = await deleteProductService(parseInt(id as string));
+
+    const user = (req as any).user;
+    if (user) {
+      try {
         await logAudit({
           userId: user.userId,
           action: 'DELETE',
           tableName: 'products',
           recordId: parseInt(id as string),
-          description: `Producto eliminado ID: ${id}`
+          description: `Producto eliminado o desactivado ID: ${id}`
         });
+      } catch (auditErr) {
+        console.error('Error logging audit for product delete:', auditErr);
       }
-
-      res.json({ message: 'Producto eliminado exitosamente' });
     }
+
+    res.json({ message: 'Producto procesado correctamente', data: result });
   } catch (error: any) {
-    res.status(500).json({ error: 'Error al eliminar producto', details: error.message });
+    res.status(400).json({ error: error.message || 'Error al eliminar producto' });
   }
 };

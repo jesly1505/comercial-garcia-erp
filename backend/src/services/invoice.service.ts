@@ -1,11 +1,13 @@
 import prisma from '../utils/prisma';
 import { z } from 'zod';
+import { adjustProductStock } from './inventory.service';
+import { MovementType, InvoiceStatus, ARStatus, PaymentMethod } from '@prisma/client';
 
 export const createInvoiceSchema = z.object({
   customerId: z.number(),
   tax: z.preprocess((val) => Number(val), z.number().min(0, 'El impuesto no puede ser negativo')).optional().default(0),
   discount: z.preprocess((val) => Number(val), z.number().min(0, 'El descuento no puede ser negativo')).optional().default(0),
-  paymentMethod: z.enum(['EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'CREDITO']).optional().default('EFECTIVO'),
+  paymentMethod: z.enum(['CONTADO', 'CREDITO', 'TARJETA', 'TRANSFERENCIA', 'MIXTO', 'EFECTIVO']).optional().default('CONTADO'),
   creditDays: z.preprocess((val) => val === undefined ? undefined : Number(val), z.number().optional()),
   amountPaid: z.preprocess((val) => Number(val), z.number().min(0, 'El monto pagado no puede ser negativo')).optional(),
   details: z.array(
@@ -20,9 +22,14 @@ export const createInvoice = async (
   userId: number,
   data: z.infer<typeof createInvoiceSchema>
 ) => {
-  // Utilizaremos una Transacción de Prisma para garantizar la consistencia
+  // Estandarizar método de pago
+  let pm: PaymentMethod = PaymentMethod.CONTADO;
+  if (data.paymentMethod === 'CREDITO') pm = PaymentMethod.CREDITO;
+  else if (data.paymentMethod === 'TARJETA') pm = PaymentMethod.TARJETA;
+  else if (data.paymentMethod === 'TRANSFERENCIA') pm = PaymentMethod.TRANSFERENCIA;
+  else if (data.paymentMethod === 'MIXTO') pm = PaymentMethod.MIXTO;
+
   return prisma.$transaction(async (tx) => {
-    
     // 1. Validar Cliente
     const customer = await tx.customer.findUnique({ where: { id: data.customerId } });
     if (!customer || !customer.isActive) {
@@ -31,25 +38,29 @@ export const createInvoice = async (
 
     let totalAmount = 0;
     const invoiceDetails = [];
+    const invoiceNumber = `INV-${Date.now()}`;
 
-    // 2. Procesar y Validar cada Producto
+    // 2. Procesar y Validar cada Producto usando el servicio de inventario centralizado
     for (const item of data.details) {
       const product = await tx.product.findUnique({ where: { id: item.productId } });
       
       if (!product || !product.isActive) {
         throw new Error(`Producto ID ${item.productId} inválido o inactivo`);
       }
-      if (product.currentStock < item.quantity) {
-        throw new Error(`Stock insuficiente para el producto ${product.name}. Stock actual: ${product.currentStock}`);
-      }
 
-      // Restar stock
-      await tx.product.update({
-        where: { id: product.id },
-        data: { currentStock: product.currentStock - item.quantity }
+      // Descontar stock centralizadamente
+      await adjustProductStock({
+        productId: product.id,
+        quantity: item.quantity,
+        movementType: MovementType.VENTA,
+        userId,
+        reason: `Venta Factura ${invoiceNumber}`,
+        referenceNumber: `FACT-${Date.now().toString().slice(-6)}-${product.id}`,
+        tx
       });
 
-      const subtotal = product.salePrice * item.quantity;
+      const unitPrice = Number(product.salePrice);
+      const subtotal = unitPrice * item.quantity;
       totalAmount += subtotal;
 
       invoiceDetails.push({
@@ -61,7 +72,6 @@ export const createInvoice = async (
     }
 
     // 3. Crear Factura Maestra
-    const invoiceNumber = `INV-${Date.now()}`;
     const finalTotal = totalAmount + (data.tax || 0) - (data.discount || 0);
     
     const invoice = await tx.invoice.create({
@@ -72,7 +82,8 @@ export const createInvoice = async (
         totalAmount: finalTotal,
         tax: data.tax || 0,
         discount: data.discount || 0,
-        paymentMethod: data.paymentMethod,
+        paymentMethod: pm,
+        status: InvoiceStatus.ACTIVA,
         details: {
           create: invoiceDetails
         }
@@ -85,7 +96,7 @@ export const createInvoice = async (
     });
 
     // 4. Crear Cuentas por Cobrar y Pagos
-    if (data.paymentMethod === 'CREDITO') {
+    if (pm === PaymentMethod.CREDITO) {
       const days = data.creditDays && [8, 15, 30].includes(data.creditDays) ? data.creditDays : 30;
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + days);
@@ -96,19 +107,19 @@ export const createInvoice = async (
           invoiceId: invoice.id,
           totalDebt: finalTotal,
           balance: finalTotal,
-          status: 'PENDING',
+          status: ARStatus.PENDING,
           dueDate: dueDate
         }
       });
     } else {
-      // CONTADO (Efectivo, Tarjeta, Transferencia)
+      // CONTADO / TARJETA / TRANSFERENCIA
       const ar = await tx.accountsReceivable.create({
         data: {
           customerId: data.customerId,
           invoiceId: invoice.id,
           totalDebt: finalTotal,
           balance: 0,
-          status: 'PAID'
+          status: ARStatus.PAID
         }
       });
 
@@ -116,8 +127,7 @@ export const createInvoice = async (
         data: {
           accountReceivableId: ar.id,
           amount: finalTotal,
-          paymentMethod: data.paymentMethod,
-          // cashSessionId could be added here if implemented later
+          paymentMethod: pm
         }
       });
     }
@@ -126,15 +136,39 @@ export const createInvoice = async (
   });
 };
 
-export const getInvoices = async () => {
-  return prisma.invoice.findMany({
-    orderBy: { issueDate: 'desc' },
-    include: {
-      customer: true,
-      user: true,
-      details: true
-    }
-  });
+export const getInvoices = async (page = 1, limit = 50, search = '') => {
+  const skip = (page - 1) * limit;
+  const where: any = {};
+
+  if (search) {
+    where.OR = [
+      { invoiceNumber: { contains: search } },
+      { customer: { firstName: { contains: search } } },
+      { customer: { lastName: { contains: search } } }
+    ];
+  }
+
+  const [invoices, total] = await Promise.all([
+    prisma.invoice.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { issueDate: 'desc' },
+      include: {
+        customer: true,
+        user: true,
+        details: true
+      }
+    }),
+    prisma.invoice.count({ where })
+  ]);
+
+  return {
+    data: invoices,
+    total,
+    page,
+    totalPages: Math.ceil(total / limit)
+  };
 };
 
 export const getInvoiceById = async (id: number) => {
@@ -150,7 +184,7 @@ export const getInvoiceById = async (id: number) => {
   });
 };
 
-export const voidInvoice = async (id: number) => {
+export const voidInvoice = async (id: number, userId = 1) => {
   return prisma.$transaction(async (tx) => {
     // 1. Verificar Factura
     const invoice = await tx.invoice.findUnique({
@@ -159,35 +193,33 @@ export const voidInvoice = async (id: number) => {
     });
 
     if (!invoice) throw new Error('Factura no encontrada');
-    if (invoice.status === 'ANULADA') throw new Error('La factura ya está anulada');
+    if (invoice.status === InvoiceStatus.ANULADA) throw new Error('La factura ya está anulada');
 
     // 2. Cambiar estado
     const updatedInvoice = await tx.invoice.update({
       where: { id },
-      data: { status: 'ANULADA' }
+      data: { status: InvoiceStatus.ANULADA }
     });
 
-    // 3. Devolver Inventario
+    // 3. Devolver Inventario mediante el servicio centralizado
     for (const detail of invoice.details) {
-      await tx.product.update({
-        where: { id: detail.productId },
-        data: { currentStock: { increment: detail.quantity } }
+      await adjustProductStock({
+        productId: detail.productId,
+        quantity: detail.quantity,
+        movementType: MovementType.DEVOLUCION,
+        userId,
+        reason: `Anulación de Factura ${invoice.invoiceNumber}`,
+        referenceNumber: `ANUL-${Date.now().toString().slice(-6)}-${detail.productId}`,
+        tx
       });
     }
 
-    // 4. Anular Cuentas por Cobrar y Pagos Asociados
+    // 4. Actualizar Cuentas por Cobrar
     for (const ar of invoice.accountsReceivable) {
       await tx.accountsReceivable.update({
         where: { id: ar.id },
-        data: { status: 'VOIDED', balance: 0 }
+        data: { status: ARStatus.CANCELLED, balance: 0 }
       });
-
-      // Eliminar los pagos de esta cuenta
-      for (const payment of ar.payments) {
-        await tx.payment.delete({
-          where: { id: payment.id }
-        });
-      }
     }
 
     return updatedInvoice;

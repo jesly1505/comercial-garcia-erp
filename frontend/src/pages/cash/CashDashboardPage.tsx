@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Wallet, LogIn, LogOut, Download, Plus, Minus, Lock, Unlock } from 'lucide-react';
+import { Wallet, Download, Plus, Minus, Lock, Unlock } from 'lucide-react';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
-import { printInvoiceTicket } from '../../utils/invoicePrinter';
 
 const CashDashboardPage: React.FC = () => {
   const [sessionInfo, setSessionInfo] = useState<any>(null);
@@ -40,6 +40,7 @@ const CashDashboardPage: React.FC = () => {
       if (res.data.length > 0) setSelectedRegister(res.data[0].id.toString());
     } catch (error) {
       console.error(error);
+      toast.error('Error al cargar cajas');
     }
   };
 
@@ -59,8 +60,9 @@ const CashDashboardPage: React.FC = () => {
       setShowOpenModal(false);
       setOpenBalance('');
       fetchActiveSession();
+      toast.success('Caja abierta exitosamente');
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Error al abrir caja');
+      toast.error(error.response?.data?.error || 'Error al abrir caja');
     }
   };
 
@@ -72,6 +74,8 @@ const CashDashboardPage: React.FC = () => {
         closingBalance: Number(closeBalance)
       });
       
+      toast.success('Caja cerrada correctamente');
+
       // Print closing ticket
       if (window.confirm('Caja cerrada. ¿Deseas imprimir el comprobante de arqueo?')) {
         printArqueoTicket({ ...sessionInfo, closingBalance: res.data.closingBalance });
@@ -81,7 +85,7 @@ const CashDashboardPage: React.FC = () => {
       setCloseBalance('');
       setSessionInfo(null);
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Error al cerrar caja');
+      toast.error(error.response?.data?.error || 'Error al cerrar caja');
     }
   };
 
@@ -98,9 +102,20 @@ const CashDashboardPage: React.FC = () => {
       setMovementAmount('');
       setMovementDesc('');
       fetchActiveSession(); // Refresh totals
+      toast.success(movementType === 'IN' ? 'Entrada de efectivo registrada' : 'Salida de efectivo registrada');
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Error al registrar movimiento');
+      toast.error(error.response?.data?.error || 'Error al registrar movimiento');
     }
+  };
+
+  const escapeHtml = (unsafe: any) => {
+    if (unsafe === undefined || unsafe === null) return '';
+    return String(unsafe)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   };
 
   const printArqueoTicket = (info: any) => {
@@ -112,8 +127,11 @@ const CashDashboardPage: React.FC = () => {
       : 0;
 
     const html = `
+      <!DOCTYPE html>
       <html>
         <head>
+          <meta charset="utf-8" />
+          <title>Arqueo de Caja</title>
           <style>
             body { font-family: monospace; font-size: 12px; margin: 0; padding: 10px; width: 300px; }
             .center { text-align: center; }
@@ -126,39 +144,39 @@ const CashDashboardPage: React.FC = () => {
           <div class="center bold" style="font-size: 16px;">COMERCIAL GARCÍA</div>
           <div class="center">ARQUEO DE CAJA</div>
           <div class="divider"></div>
-          <div><span class="bold">Fecha:</span> ${new Date().toLocaleString()}</div>
-          <div><span class="bold">Cajero:</span> ${info.session.user?.firstName}</div>
-          <div><span class="bold">Caja:</span> ${info.session.cashRegister?.name}</div>
+          <div><span class="bold">Fecha:</span> ${escapeHtml(new Date().toLocaleString())}</div>
+          <div><span class="bold">Cajero:</span> ${escapeHtml(info.session.user?.firstName || 'Cajero')}</div>
+          <div><span class="bold">Caja:</span> ${escapeHtml(info.session.cashRegister?.name || 'Principal')}</div>
           <div class="divider"></div>
           <div class="flex-between">
             <span>Saldo Inicial:</span>
-            <span>C$${info.session.openingBalance.toFixed(2)}</span>
+            <span>C$${Number(info.session.openingBalance || 0).toFixed(2)}</span>
           </div>
           <div class="flex-between">
             <span>Ventas Efectivo:</span>
-            <span>+ C$${info.totalSalesCash.toFixed(2)}</span>
+            <span>+ C$${Number(info.totalSalesCash || 0).toFixed(2)}</span>
           </div>
           <div class="flex-between">
             <span>Ingresos (Manual):</span>
-            <span>+ C$${info.totalIn.toFixed(2)}</span>
+            <span>+ C$${Number(info.totalIn || 0).toFixed(2)}</span>
           </div>
           <div class="flex-between">
             <span>Egresos (Manual):</span>
-            <span>- C$${info.totalOut.toFixed(2)}</span>
+            <span>- C$${Number(info.totalOut || 0).toFixed(2)}</span>
           </div>
           <div class="divider"></div>
           <div class="flex-between bold" style="font-size: 14px;">
             <span>TOTAL ESPERADO:</span>
-            <span>C$${info.expectedBalance.toFixed(2)}</span>
+            <span>C$${Number(info.expectedBalance || 0).toFixed(2)}</span>
           </div>
           ${info.closingBalance !== undefined ? `
             <div class="flex-between" style="margin-top:10px;">
               <span>TOTAL DECLARADO:</span>
-              <span>C$${info.closingBalance.toFixed(2)}</span>
+              <span>C$${Number(info.closingBalance || 0).toFixed(2)}</span>
             </div>
             <div class="flex-between bold" style="color: ${diff < 0 ? 'red' : 'black'};">
               <span>DIFERENCIA:</span>
-              <span>C$${diff.toFixed(2)}</span>
+              <span>C$${Number(diff).toFixed(2)}</span>
             </div>
           ` : ''}
           <div class="divider"></div>
@@ -208,26 +226,26 @@ const CashDashboardPage: React.FC = () => {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
                 <div style={{ padding: '1rem', background: 'var(--bg-glass)', borderRadius: '8px' }}>
                   <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.25rem' }}>Saldo Inicial</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>C${sessionInfo.session.openingBalance.toFixed(2)}</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>C${Number(sessionInfo.session.openingBalance || 0).toFixed(2)}</div>
                 </div>
                 <div style={{ padding: '1rem', background: 'var(--bg-glass)', borderRadius: '8px' }}>
                   <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.25rem' }}>Ventas en Efectivo</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#10b981' }}>+ C${sessionInfo.totalSalesCash.toFixed(2)}</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#10b981' }}>+ C${Number(sessionInfo.totalSalesCash || 0).toFixed(2)}</div>
                 </div>
                 <div style={{ padding: '1rem', background: 'var(--bg-glass)', borderRadius: '8px' }}>
                   <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.25rem' }}>Ingresos (Manuales)</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#3b82f6' }}>+ C${sessionInfo.totalIn.toFixed(2)}</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#3b82f6' }}>+ C${Number(sessionInfo.totalIn || 0).toFixed(2)}</div>
                 </div>
                 <div style={{ padding: '1rem', background: 'var(--bg-glass)', borderRadius: '8px' }}>
                   <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.25rem' }}>Egresos (Manuales)</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#ef4444' }}>- C${sessionInfo.totalOut.toFixed(2)}</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#ef4444' }}>- C${Number(sessionInfo.totalOut || 0).toFixed(2)}</div>
                 </div>
               </div>
 
               <div style={{ marginTop: '1.5rem', padding: '1.5rem', background: 'rgba(59,130,246,0.1)', borderRadius: '12px', border: '1px solid rgba(59,130,246,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>TOTAL ESPERADO EN CAJA</div>
-                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>C${sessionInfo.expectedBalance.toFixed(2)}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>C${Number(sessionInfo.expectedBalance || 0).toFixed(2)}</div>
                 </div>
                 <Wallet size={48} color="#3b82f6" opacity={0.8} />
               </div>
@@ -286,8 +304,8 @@ const CashDashboardPage: React.FC = () => {
 
       {/* Modal Abrir Caja */}
       {showOpenModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: 'min(95vw, 440px)', maxHeight: '90vh', overflowY: 'auto', padding: 'clamp(1rem, 3vw, 2rem)' }}>
             <h2 style={{ margin: '0 0 1.5rem 0' }}>Abrir Caja</h2>
             <form onSubmit={handleOpenSession}>
               <div style={{ marginBottom: '1rem' }}>
@@ -309,7 +327,7 @@ const CashDashboardPage: React.FC = () => {
                 <input 
                   type="number" 
                   step="0.01" 
-                  min="0"
+                  min="0" 
                   value={openBalance}
                   onChange={e => setOpenBalance(Number(e.target.value))}
                   style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-glass)', background: 'var(--bg-glass)', color: 'var(--text-primary)' }}
@@ -327,8 +345,8 @@ const CashDashboardPage: React.FC = () => {
 
       {/* Modal Cerrar Caja */}
       {showCloseModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: 'min(95vw, 440px)', maxHeight: '90vh', overflowY: 'auto', padding: 'clamp(1rem, 3vw, 2rem)' }}>
             <h2 style={{ margin: '0 0 1.5rem 0' }}>Cerrar Caja</h2>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>Ingresa el monto de efectivo físico que hay actualmente en caja. El sistema lo comparará con el esperado.</p>
             <form onSubmit={handleCloseSession}>
@@ -355,8 +373,8 @@ const CashDashboardPage: React.FC = () => {
 
       {/* Modal Ingreso/Egreso */}
       {showMovementModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: 'min(95vw, 440px)', maxHeight: '90vh', overflowY: 'auto', padding: 'clamp(1rem, 3vw, 2rem)' }}>
             <h2 style={{ margin: '0 0 1.5rem 0' }}>Registrar {movementType === 'IN' ? 'Ingreso' : 'Egreso'}</h2>
             <form onSubmit={handleMovement}>
               <div style={{ marginBottom: '1rem' }}>

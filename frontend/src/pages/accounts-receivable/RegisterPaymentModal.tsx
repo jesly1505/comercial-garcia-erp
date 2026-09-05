@@ -40,7 +40,7 @@ const RegisterPaymentModal: React.FC<Props> = ({ ar, onClose, onPaymentSuccess }
       backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999,
       display: 'flex', alignItems: 'center', justifyContent: 'center'
     }}>
-      <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '450px', padding: '2rem' }}>
+      <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: 'min(95vw, 480px)', maxHeight: '90vh', overflowY: 'auto', padding: 'clamp(1rem, 3vw, 2rem)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <DollarSign size={20} color="#10b981" /> Registrar Abono

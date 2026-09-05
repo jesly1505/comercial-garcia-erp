@@ -98,7 +98,7 @@ export const createUser = async (req: Request, res: Response) => {
     res.status(201).json(user);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ errors: error.errors });
+      res.status(400).json({ error: error.issues?.[0]?.message || 'Error de validación', errors: error.issues });
     } else {
       res.status(500).json({ error: error.message });
     }
@@ -157,7 +157,7 @@ export const updateUser = async (req: Request, res: Response) => {
     res.json(updatedUser);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ errors: error.errors });
+      res.status(400).json({ error: error.issues?.[0]?.message || 'Error de validación', errors: error.issues });
     } else {
       res.status(500).json({ error: error.message });
     }
@@ -221,7 +221,7 @@ export const resetPassword = async (req: Request, res: Response) => {
     res.json({ message: 'Contraseña actualizada correctamente' });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ errors: error.errors });
+      res.status(400).json({ error: error.issues?.[0]?.message || 'Error de validación', errors: error.issues });
     } else {
       res.status(500).json({ error: error.message });
     }

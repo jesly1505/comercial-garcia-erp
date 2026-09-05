@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -11,18 +12,45 @@ export const LoginScreen = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const { login } = useAuth();
 
+  // Cargar credencial recordada si existía (TICKET-058)
+  useEffect(() => {
+    const loadSavedCredentials = async () => {
+      try {
+        const savedRemember = await AsyncStorage.getItem('remember_me');
+        const savedEmail = await AsyncStorage.getItem('saved_email');
+        if (savedRemember === 'true' && savedEmail) {
+          setEmail(savedEmail);
+          setRememberMe(true);
+        }
+      } catch (e) {
+        console.warn('Error loading saved credentials:', e);
+      }
+    };
+    loadSavedCredentials();
+  }, []);
+
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Por favor ingrese correo y contraseña');
+    if (!email.trim() || !password) {
+      Alert.alert('Campos requeridos', 'Por favor ingrese usuario/correo y contraseña');
       return;
     }
     
     setLoading(true);
     try {
-      const res = await api.post('/auth/login', { email, password });
+      const res = await api.post('/auth/login', { email: email.trim(), password });
+      
+      // Guardar o limpiar preferencia de recordar usuario (TICKET-058)
+      if (rememberMe) {
+        await AsyncStorage.setItem('saved_email', email.trim());
+        await AsyncStorage.setItem('remember_me', 'true');
+      } else {
+        await AsyncStorage.removeItem('saved_email');
+        await AsyncStorage.removeItem('remember_me');
+      }
+
       await login(res.data.token, res.data.user);
     } catch (error: any) {
-      Alert.alert('Error de acceso', error.response?.data?.error || 'Credenciales inválidas');
+      Alert.alert('Error de acceso', error.response?.data?.error || 'Credenciales incorrectas');
     } finally {
       setLoading(false);
     }
@@ -51,10 +79,10 @@ export const LoginScreen = () => {
           <Text style={styles.title}>Iniciar Sesión</Text>
           
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Usuario</Text>
+            <Text style={styles.label}>Usuario / Correo</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ingrese su usuario"
+              placeholder="Ingrese su usuario o correo"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -79,17 +107,17 @@ export const LoginScreen = () => {
           </View>
 
           <View style={styles.optionsRow}>
-            <TouchableOpacity style={styles.checkboxContainer} onPress={() => setRememberMe(!rememberMe)}>
+            <TouchableOpacity 
+              style={styles.checkboxContainer} 
+              onPress={() => setRememberMe(!rememberMe)}
+              activeOpacity={0.7}
+            >
               <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
                 {rememberMe && <FontAwesome5 name="check" size={10} color="#fff" />}
               </View>
-              <Text style={styles.checkboxLabel}>Recuérdame</Text>
+              <Text style={styles.checkboxLabel}>Recordar usuario</Text>
             </TouchableOpacity>
           </View>
-          
-          <TouchableOpacity style={styles.forgotLink}>
-            <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
-          </TouchableOpacity>
 
           <TouchableOpacity 
             style={[styles.button, loading && styles.buttonDisabled]} 
@@ -99,7 +127,7 @@ export const LoginScreen = () => {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Iniciar Sesión</Text>
+              <Text style={styles.buttonText}>Acceder al Sistema</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -123,10 +151,9 @@ const styles = StyleSheet.create({
     padding: 20,
     width: '100%',
   },
-  // LOGO STYLES
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 30,
   },
   crownIcon: {
     marginBottom: -10,
@@ -138,14 +165,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   letterG: {
-    fontSize: 70,
+    fontSize: 64,
     fontWeight: 'bold',
     color: '#0b1930',
     fontFamily: Platform.OS === 'ios' ? 'Times New Roman' : 'serif',
     zIndex: 1,
   },
   letterR: {
-    fontSize: 70,
+    fontSize: 64,
     fontWeight: 'bold',
     color: '#c59b6d',
     fontFamily: Platform.OS === 'ios' ? 'Times New Roman' : 'serif',
@@ -174,9 +201,8 @@ const styles = StyleSheet.create({
     marginTop: 15,
     opacity: 0.5,
   },
-  // FORM STYLES
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#0b1930',
     textAlign: 'center',
@@ -193,7 +219,7 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#e2e8f0',
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
@@ -205,7 +231,7 @@ const styles = StyleSheet.create({
   },
   passwordInput: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#e2e8f0',
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
@@ -218,17 +244,17 @@ const styles = StyleSheet.create({
   },
   optionsRow: {
     flexDirection: 'row',
-    marginBottom: 10,
+    marginBottom: 20,
   },
   checkboxContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   checkbox: {
-    width: 16,
-    height: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    width: 18,
+    height: 18,
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
     borderRadius: 4,
     marginRight: 8,
     alignItems: 'center',
@@ -239,20 +265,12 @@ const styles = StyleSheet.create({
     borderColor: '#0b1930',
   },
   checkboxLabel: {
-    fontSize: 12,
-    color: '#4b5563',
-  },
-  forgotLink: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  forgotText: {
-    fontSize: 12,
-    color: '#0b1930',
+    fontSize: 13,
+    color: '#475569',
   },
   button: {
     backgroundColor: '#0b1930',
-    padding: 16,
+    padding: 15,
     borderRadius: 8,
     alignItems: 'center',
   },
@@ -261,7 +279,9 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
   },
 });
+
+export default LoginScreen;

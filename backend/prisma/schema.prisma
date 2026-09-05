@@ -3,8 +3,90 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum MovementType {
+  ENTRADA
+  SALIDA
+  AJUSTE
+  VENTA
+  COMPRA
+  DEVOLUCION
+}
+
+enum InvoiceStatus {
+  ACTIVA
+  ANULADA
+  PAGADA
+}
+
+enum QuotationStatus {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+  FACTURADA
+  VENCIDA
+  CANCELADA
+}
+
+enum SalesOrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum SpecialOrderStatus {
+  REQUESTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PurchaseOrderStatus {
+  PENDING
+  RECEIVED
+  CANCELLED
+}
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum CashMovementType {
+  IN
+  OUT
+}
+
+enum PaymentMethod {
+  CONTADO
+  CREDITO
+  TARJETA
+  TRANSFERENCIA
+  MIXTO
+}
+
+enum ARStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  SUCCESS
+  ERROR
 }
 
 // ==========================================
@@ -14,7 +96,7 @@ datasource db {
 model Role {
   id              Int               @id @default(autoincrement())
   name            String            @unique
-  description     String?           
+  description     String?           @db.Text
   isActive        Boolean           @default(true) @map("is_active")
   users           User[]
   rolePermissions RolePermission[]
@@ -24,18 +106,18 @@ model Role {
 
 model Permission {
   id              Int               @id @default(autoincrement())
-  code            String            @unique // ej. 'invoice.create'
-  description     String?           
+  code            String            @unique // ej. 'invoice:create'
+  description     String?           @db.Text
   rolePermissions RolePermission[]
 
   @@map("permissions")
 }
 
 model RolePermission {
-  roleId       Int
-  permissionId Int
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  roleId       Int          @map("role_id")
+  permissionId Int          @map("permission_id")
+  role         Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission   @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId])
   @@map("role_permissions")
@@ -44,11 +126,11 @@ model RolePermission {
 model User {
   id                 Int                 @id @default(autoincrement())
   roleId             Int                 @map("role_id")
-  firstName          String              @map("first_name") 
-  lastName           String              @map("last_name") 
+  firstName          String              @map("first_name")
+  lastName           String              @map("last_name")
   username           String?             @unique
-  email              String              @unique 
-  passwordHash       String              @map("password_hash") 
+  email              String              @unique
+  passwordHash       String              @map("password_hash")
   isActive           Boolean             @default(true) @map("is_active")
   createdAt          DateTime            @default(now()) @map("created_at")
   role               Role                @relation(fields: [roleId], references: [id], onDelete: Restrict)
@@ -64,50 +146,55 @@ model User {
 }
 
 model AuditLog {
-  id         Int      @id @default(autoincrement())
-  userId     Int?     @map("user_id")
-  action     String   
-  tableName  String   @map("table_name") 
-  recordId   Int?     @map("record_id")
-  description String? 
-  oldValues  String?  @map("old_values") // JSON as String for SQLite
-  newValues  String?  @map("new_values") // JSON as String for SQLite
-  createdAt  DateTime @default(now()) @map("created_at")
-  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id          Int      @id @default(autoincrement())
+  userId      Int?     @map("user_id")
+  action      String
+  tableName   String   @map("table_name")
+  recordId    Int?     @map("record_id")
+  description String?  @db.Text
+  oldValues   Json?    @map("old_values")
+  newValues   Json?    @map("new_values")
+  createdAt   DateTime @default(now()) @map("created_at")
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  @@index([userId])
+  @@index([tableName])
+  @@index([createdAt])
   @@map("audit_logs")
 }
 
 model Notification {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
+  id        Int              @id @default(autoincrement())
+  userId    Int              @map("user_id")
   title     String
-  message   String
-  type      String   // INFO, WARNING, SUCCESS, ERROR
-  isRead    Boolean  @default(false) @map("is_read")
-  createdAt DateTime @default(now()) @map("created_at")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  message   String           @db.Text
+  type      NotificationType @default(INFO)
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
   @@map("notifications")
 }
 
 model CompanySettings {
   id                 Int      @id @default(1)
-  companyName        String   @map("company_name") @default("Comercial García Reyes S.A.")
-  logoBase64         String?  @map("logo_base64")
-  address            String?
+  companyName        String   @default("Comercial García Reyes S.A.") @map("company_name")
+  logoBase64         String?  @map("logo_base64") @db.Text
+  address            String?  @db.Text
   phone              String?
   email              String?
   currency           String   @default("C$")
   timezone           String   @default("America/Managua")
-  dateFormat         String   @map("date_format") @default("DD/MM/YYYY")
-  
-  invoiceAutoNumber  Boolean  @map("invoice_auto_number") @default(true)
-  orderAutoNumber    Boolean  @map("order_auto_number") @default(true)
-  movementAutoNumber Boolean  @map("movement_auto_number") @default(true)
-  defaultMinStock    Int      @map("default_min_stock") @default(5)
+  dateFormat         String   @default("DD/MM/YYYY") @map("date_format")
+
+  invoiceAutoNumber  Boolean  @default(true) @map("invoice_auto_number")
+  orderAutoNumber    Boolean  @default(true) @map("order_auto_number")
+  movementAutoNumber Boolean  @default(true) @map("movement_auto_number")
+  defaultMinStock    Int      @default(5) @map("default_min_stock")
   theme              String   @default("light")
-  
+
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   @@map("company_settings")
@@ -118,43 +205,46 @@ model CompanySettings {
 // ==========================================
 
 model Customer {
-  id                 Int                 @id @default(autoincrement())
-  code               String              @unique @default(cuid())
-  firstName          String              @map("first_name")
-  lastName           String              @map("last_name")
+  id                 Int                  @id @default(autoincrement())
+  code               String               @unique @default(cuid())
+  firstName          String               @map("first_name")
+  lastName           String               @map("last_name")
   company            String?
   ruc                String?
-  documentNumber     String              @unique @map("document_number") // Cédula
+  documentNumber     String               @unique @map("document_number") // Cédula
   phone              String?
   whatsapp           String?
   email              String?
-  address            String?
+  address            String?              @db.Text
   municipality       String?
   department         String?
-  creditLimit        Float               @default(0) @map("credit_limit")
-  isActive           Boolean             @default(true) @map("is_active")
+  creditLimit        Decimal              @default(0) @map("credit_limit") @db.Decimal(12, 2)
+  isActive           Boolean              @default(true) @map("is_active")
   salesOrders        SalesOrder[]
   specialOrders      SpecialOrder[]
   invoices           Invoice[]
   accountsReceivable AccountsReceivable[]
   quotations         Quotation[]
 
+  @@index([documentNumber])
+  @@index([isActive])
   @@map("customers")
 }
 
 model Supplier {
   id             Int             @id @default(autoincrement())
   code           String          @unique @default(cuid())
-  name           String          
+  name           String
   company        String?
   contactName    String?         @map("contact_name")
   phone          String?
   email          String?
-  address        String?
+  address        String?         @db.Text
   ruc            String?         @unique
   isActive       Boolean         @default(true) @map("is_active")
   purchaseOrders PurchaseOrder[]
 
+  @@index([ruc])
   @@map("suppliers")
 }
 
@@ -164,7 +254,7 @@ model Supplier {
 
 model Category {
   id       Int       @id @default(autoincrement())
-  name     String    @unique 
+  name     String    @unique
   products Product[]
 
   @@map("categories")
@@ -172,40 +262,44 @@ model Category {
 
 model Brand {
   id       Int       @id @default(autoincrement())
-  name     String    @unique 
+  name     String    @unique
   products Product[]
 
   @@map("brands")
 }
 
 model Product {
-  id                 Int                   @id @default(autoincrement())
-  categoryId         Int                   @map("category_id")
-  brandId            Int?                  @map("brand_id")
-  sku                String                @unique 
-  name               String                
-  costPrice          Float                 @map("cost_price") 
-  salePrice          Float                 @map("sale_price") 
-  currentStock       Int                   @default(0) @map("current_stock")
-  minStock           Int                   @default(5) @map("min_stock")
-  unit               String                @default("UNIDAD")
-  imageUrl           String?               @map("image_url")
-  isActive           Boolean               @default(true) @map("is_active")
-  category           Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  brand              Brand?                @relation(fields: [brandId], references: [id], onDelete: Restrict)
-  inventory          Inventory[]
-  inventoryMovements InventoryMovement[]
-  invoiceDetails     InvoiceDetail[]
+  id                   Int                   @id @default(autoincrement())
+  categoryId           Int                   @map("category_id")
+  brandId              Int?                  @map("brand_id")
+  sku                  String                @unique
+  name                 String
+  costPrice            Decimal               @map("cost_price") @db.Decimal(12, 2)
+  salePrice            Decimal               @map("sale_price") @db.Decimal(12, 2)
+  currentStock         Int                   @default(0) @map("current_stock")
+  minStock             Int                   @default(5) @map("min_stock")
+  unit                 String                @default("UNIDAD")
+  imageUrl             String?               @map("image_url") @db.Text
+  isActive             Boolean               @default(true) @map("is_active")
+  category             Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  brand                Brand?                @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  inventory            Inventory[]
+  inventoryMovements   InventoryMovement[]
+  invoiceDetails       InvoiceDetail[]
   purchaseOrderDetails PurchaseOrderDetail[]
-  salesOrderDetails  SalesOrderDetail[]
-  quotationDetails   QuotationDetail[]
+  salesOrderDetails    SalesOrderDetail[]
+  quotationDetails     QuotationDetail[]
 
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([sku])
+  @@index([isActive])
   @@map("products")
 }
 
 model Warehouse {
   id                 Int                 @id @default(autoincrement())
-  name               String              
+  name               String
   inventory          Inventory[]
   inventoryMovements InventoryMovement[]
 
@@ -221,26 +315,31 @@ model Inventory {
   warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
 
   @@unique([productId, warehouseId])
+  @@index([productId])
+  @@index([warehouseId])
   @@map("inventory")
 }
 
 model InventoryMovement {
-  id              Int       @id @default(autoincrement())
-  referenceNumber String?   @unique @map("reference_number")
-  productId       Int       @map("product_id")
-  warehouseId     Int       @map("warehouse_id")
-  userId          Int       @map("user_id")
-  movementType    String    @map("movement_type") 
+  id              Int          @id @default(autoincrement())
+  referenceNumber String?      @unique @map("reference_number")
+  productId       Int          @map("product_id")
+  warehouseId     Int          @map("warehouse_id")
+  userId          Int          @map("user_id")
+  movementType    MovementType @map("movement_type")
   quantity        Int
-  stockBefore     Int       @default(0) @map("stock_before")
-  stockAfter      Int       @default(0) @map("stock_after")
-  reason          String?
-  notes           String?
-  createdAt       DateTime  @default(now()) @map("created_at")
-  product         Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
-  warehouse       Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
-  user            User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  stockBefore     Int          @default(0) @map("stock_before")
+  stockAfter      Int          @default(0) @map("stock_after")
+  reason          String?      @db.Text
+  notes           String?      @db.Text
+  createdAt       DateTime     @default(now()) @map("created_at")
+  product         Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouse       Warehouse    @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Restrict)
 
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([createdAt])
   @@map("inventory_movements")
 }
 
@@ -253,13 +352,13 @@ model Quotation {
   quotationNumber String            @unique @map("quotation_number")
   customerId      Int               @map("customer_id")
   userId          Int               @map("user_id")
-  status          String            @default("PENDIENTE") // PENDIENTE, APROBADA, RECHAZADA, FACTURADA, VENCIDA, CANCELADA
-  subtotal        Float             @default(0)
-  tax             Float             @default(0)
-  discount        Float             @default(0)
-  totalAmount     Float             @map("total_amount")
+  status          QuotationStatus   @default(PENDIENTE)
+  subtotal        Decimal           @default(0) @db.Decimal(12, 2)
+  tax             Decimal           @default(0) @db.Decimal(12, 2)
+  discount        Decimal           @default(0) @db.Decimal(12, 2)
+  totalAmount     Decimal           @map("total_amount") @db.Decimal(12, 2)
   validUntil      DateTime?         @map("valid_until")
-  notes           String?
+  notes           String?           @db.Text
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
 
@@ -268,6 +367,9 @@ model Quotation {
   details         QuotationDetail[]
   invoices        Invoice[]
 
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
   @@map("quotations")
 }
 
@@ -276,26 +378,30 @@ model QuotationDetail {
   quotationId Int       @map("quotation_id")
   productId   Int       @map("product_id")
   quantity    Int
-  unitPrice   Float     @map("unit_price")
-  discount    Float     @default(0)
-  subtotal    Float
+  unitPrice   Decimal   @map("unit_price") @db.Decimal(12, 2)
+  discount    Decimal   @default(0) @db.Decimal(12, 2)
+  subtotal    Decimal   @db.Decimal(12, 2)
 
   quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   product     Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
 
+  @@index([quotationId])
+  @@index([productId])
   @@map("quotation_details")
 }
 
 model SalesOrder {
-  id          Int       @id @default(autoincrement())
-  customerId  Int       @map("customer_id")
-  status      String    @default("PENDING") 
-  totalAmount Float     @map("total_amount") 
-  createdAt   DateTime  @default(now()) @map("created_at")
-  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  id          Int                @id @default(autoincrement())
+  customerId  Int                @map("customer_id")
+  status      SalesOrderStatus   @default(PENDING)
+  totalAmount Decimal            @map("total_amount") @db.Decimal(12, 2)
+  createdAt   DateTime           @default(now()) @map("created_at")
+  customer    Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
   invoices    Invoice[]
   details     SalesOrderDetail[]
 
+  @@index([customerId])
+  @@index([status])
   @@map("sales_orders")
 }
 
@@ -304,23 +410,26 @@ model SalesOrderDetail {
   salesOrderId Int        @map("sales_order_id")
   productId    Int        @map("product_id")
   quantity     Int
-  unitPrice    Float      @map("unit_price") 
-  subtotal     Float      
+  unitPrice    Decimal    @map("unit_price") @db.Decimal(12, 2)
+  subtotal     Decimal    @db.Decimal(12, 2)
   salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
   product      Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
 
+  @@index([salesOrderId])
+  @@index([productId])
   @@map("sales_order_details")
 }
 
 model SpecialOrder {
-  id             Int       @id @default(autoincrement())
-  customerId     Int       @map("customer_id")
-  description    String    
-  estimatedPrice Float?    @map("estimated_price") 
-  status         String    @default("REQUESTED") 
-  createdAt      DateTime  @default(now()) @map("created_at")
-  customer       Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  id             Int                @id @default(autoincrement())
+  customerId     Int                @map("customer_id")
+  description    String             @db.Text
+  estimatedPrice Decimal?           @map("estimated_price") @db.Decimal(12, 2)
+  status         SpecialOrderStatus @default(REQUESTED)
+  createdAt      DateTime           @default(now()) @map("created_at")
+  customer       Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
 
+  @@index([customerId])
   @@map("special_orders")
 }
 
@@ -330,12 +439,12 @@ model Invoice {
   quotationId        Int?                 @map("quotation_id")
   customerId         Int                  @map("customer_id")
   userId             Int                  @map("user_id")
-  invoiceNumber      String               @unique @map("invoice_number") 
-  totalAmount        Float                @map("total_amount") 
-  tax                Float                @default(0)
-  discount           Float                @default(0)
-  paymentMethod      String               @default("CONTADO") @map("payment_method")
-  status             String               @default("ACTIVA")
+  invoiceNumber      String               @unique @map("invoice_number")
+  totalAmount        Decimal              @map("total_amount") @db.Decimal(12, 2)
+  tax                Decimal              @default(0) @db.Decimal(12, 2)
+  discount           Decimal              @default(0) @db.Decimal(12, 2)
+  paymentMethod      PaymentMethod        @default(CONTADO) @map("payment_method")
+  status             InvoiceStatus        @default(ACTIVA)
   issueDate          DateTime             @default(now()) @map("issue_date")
   salesOrder         SalesOrder?          @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
   quotation          Quotation?           @relation(fields: [quotationId], references: [id], onDelete: SetNull)
@@ -344,6 +453,10 @@ model Invoice {
   details            InvoiceDetail[]
   accountsReceivable AccountsReceivable[]
 
+  @@index([customerId])
+  @@index([userId])
+  @@index([status])
+  @@index([issueDate])
   @@map("invoices")
 }
 
@@ -352,11 +465,13 @@ model InvoiceDetail {
   invoiceId Int     @map("invoice_id")
   productId Int     @map("product_id")
   quantity  Int
-  unitPrice Float   @map("unit_price") 
-  subtotal  Float   
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+  subtotal  Decimal @db.Decimal(12, 2)
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
+  @@index([invoiceId])
+  @@index([productId])
   @@map("invoice_details")
 }
 
@@ -368,13 +483,15 @@ model PurchaseOrder {
   id            Int                   @id @default(autoincrement())
   supplierId    Int                   @map("supplier_id")
   invoiceNumber String?               @map("invoice_number")
-  totalAmount   Float                 @map("total_amount") 
-  status        String                @default("PENDING") 
+  totalAmount   Decimal               @map("total_amount") @db.Decimal(12, 2)
+  status        PurchaseOrderStatus   @default(PENDING)
   createdAt     DateTime              @default(now()) @map("created_at")
   supplier      Supplier              @relation(fields: [supplierId], references: [id], onDelete: Restrict)
   details       PurchaseOrderDetail[]
   payments      Payment[]
 
+  @@index([supplierId])
+  @@index([status])
   @@map("purchase_orders")
 }
 
@@ -383,11 +500,13 @@ model PurchaseOrderDetail {
   purchaseOrderId Int           @map("purchase_order_id")
   productId       Int           @map("product_id")
   quantity        Int
-  unitCost        Float         @map("unit_cost") 
-  subtotal        Float         
+  unitCost        Decimal       @map("unit_cost") @db.Decimal(12, 2)
+  subtotal        Decimal       @db.Decimal(12, 2)
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   product         Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
 
+  @@index([purchaseOrderId])
+  @@index([productId])
   @@map("purchase_order_details")
 }
 
@@ -397,7 +516,7 @@ model PurchaseOrderDetail {
 
 model CashRegister {
   id       Int           @id @default(autoincrement())
-  name     String        
+  name     String
   isActive Boolean       @default(true) @map("is_active")
   sessions CashSession[]
 
@@ -405,32 +524,36 @@ model CashRegister {
 }
 
 model CashSession {
-  id             Int          @id @default(autoincrement())
-  cashRegisterId Int          @map("cash_register_id")
-  userId         Int          @map("user_id")
-  openingBalance Float        @map("opening_balance")
-  closingBalance Float?       @map("closing_balance") 
-  expectedBalance Float?      @map("expected_balance")
-  status         String       @default("OPEN")
-  openedAt       DateTime     @default(now()) @map("opened_at")
-  closedAt       DateTime?    @map("closed_at")
-  cashRegister   CashRegister @relation(fields: [cashRegisterId], references: [id], onDelete: Restrict)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Restrict)
-  payments       Payment[]
-  movements      CashMovement[]
+  id              Int               @id @default(autoincrement())
+  cashRegisterId  Int               @map("cash_register_id")
+  userId          Int               @map("user_id")
+  openingBalance  Decimal           @map("opening_balance") @db.Decimal(12, 2)
+  closingBalance  Decimal?          @map("closing_balance") @db.Decimal(12, 2)
+  expectedBalance Decimal?          @map("expected_balance") @db.Decimal(12, 2)
+  status          CashSessionStatus @default(OPEN)
+  openedAt        DateTime          @default(now()) @map("opened_at")
+  closedAt        DateTime?         @map("closed_at")
+  cashRegister    CashRegister      @relation(fields: [cashRegisterId], references: [id], onDelete: Restrict)
+  user            User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  payments        Payment[]
+  movements       CashMovement[]
 
+  @@index([cashRegisterId])
+  @@index([userId])
+  @@index([status])
   @@map("cash_sessions")
 }
 
 model CashMovement {
-  id            Int          @id @default(autoincrement())
-  cashSessionId Int          @map("cash_session_id")
-  type          String       // 'IN' or 'OUT'
-  amount        Float
-  description   String
-  createdAt     DateTime     @default(now()) @map("created_at")
-  cashSession   CashSession  @relation(fields: [cashSessionId], references: [id], onDelete: Cascade)
+  id            Int              @id @default(autoincrement())
+  cashSessionId Int              @map("cash_session_id")
+  type          CashMovementType
+  amount        Decimal          @db.Decimal(12, 2)
+  description   String           @db.Text
+  createdAt     DateTime         @default(now()) @map("created_at")
+  cashSession   CashSession      @relation(fields: [cashSessionId], references: [id], onDelete: Cascade)
 
+  @@index([cashSessionId])
   @@map("cash_movements")
 }
 
@@ -438,14 +561,17 @@ model AccountsReceivable {
   id         Int       @id @default(autoincrement())
   customerId Int       @map("customer_id")
   invoiceId  Int       @map("invoice_id")
-  totalDebt  Float     @map("total_debt") 
-  balance    Float     
-  status     String    @default("PENDING") 
+  totalDebt  Decimal   @map("total_debt") @db.Decimal(12, 2)
+  balance    Decimal   @db.Decimal(12, 2)
+  status     ARStatus  @default(PENDING)
   dueDate    DateTime? @map("due_date")
   customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
   invoice    Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   payments   Payment[]
 
+  @@index([customerId])
+  @@index([invoiceId])
+  @@index([status])
   @@map("accounts_receivable")
 }
 
@@ -454,13 +580,16 @@ model Payment {
   accountReceivableId Int?                @map("account_receivable_id")
   purchaseOrderId     Int?                @map("purchase_order_id")
   cashSessionId       Int?                @map("cash_session_id")
-  amount              Float               
-  paymentMethod       String              @map("payment_method") 
+  amount              Decimal             @db.Decimal(12, 2)
+  paymentMethod       PaymentMethod       @map("payment_method")
   paymentDate         DateTime            @default(now()) @map("payment_date")
   accountReceivable   AccountsReceivable? @relation(fields: [accountReceivableId], references: [id], onDelete: SetNull)
   purchaseOrder       PurchaseOrder?      @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
   cashSession         CashSession?        @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
 
+  @@index([accountReceivableId])
+  @@index([purchaseOrderId])
+  @@index([cashSessionId])
   @@map("payments")
 }
 
@@ -470,9 +599,9 @@ model Payment {
 
 model ReportTemplate {
   id     Int    @id @default(autoincrement())
-  name   String 
-  module String 
-  config String // JSON as string for SQLite
+  name   String
+  module String
+  config Json
 
   @@map("report_templates")
 }

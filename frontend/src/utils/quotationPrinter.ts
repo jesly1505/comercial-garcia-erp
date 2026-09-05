@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import toast from 'react-hot-toast';
 
 export const generateQuotationPDF = (quotation: any) => {
   if (!quotation) return null;
@@ -209,7 +210,7 @@ export const printQuotationTicket = (quotation: any) => {
 
   const printWindow = window.open('', '_blank', 'width=340,height=650');
   if (!printWindow) {
-    alert('Por favor permita las ventanas emergentes (popups) para imprimir');
+    toast.error('Por favor permita las ventanas emergentes (popups) para imprimir');
     return;
   }
 

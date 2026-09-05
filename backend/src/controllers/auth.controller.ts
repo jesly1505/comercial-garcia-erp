@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { loginUser, loginSchema } from '../services/auth.service';
+import { loginUser, loginSchema, refreshTokens, refreshSchema } from '../services/auth.service';
 import { ZodError } from 'zod';
 import { logAudit } from '../services/audit.service';
 
@@ -18,7 +18,21 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     res.json(result);
   } catch (error: any) {
     if (error instanceof ZodError) {
-      res.status(400).json({ errors: error.errors });
+      res.status(400).json({ error: error.issues?.[0]?.message || 'Error de validación' });
+    } else {
+      res.status(401).json({ error: error.message });
+    }
+  }
+};
+
+export const refresh = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { refreshToken } = refreshSchema.parse(req.body);
+    const result = await refreshTokens(refreshToken);
+    res.json(result);
+  } catch (error: any) {
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: error.issues?.[0]?.message || 'Datos de renovación inválidos' });
     } else {
       res.status(401).json({ error: error.message });
     }

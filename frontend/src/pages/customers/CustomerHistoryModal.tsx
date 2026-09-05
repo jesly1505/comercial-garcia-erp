@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Receipt, ShoppingBag, CreditCard } from 'lucide-react';
 import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 interface HistoryModalProps {
   customer: any;
@@ -20,6 +21,7 @@ export const CustomerHistoryModal: React.FC<HistoryModalProps> = ({ customer, on
         setDetails(res.data);
       } catch (err) {
         console.error('Error fetching customer details', err);
+        toast.error('Error al cargar historial del cliente');
       } finally {
         setLoading(false);
       }
@@ -27,7 +29,7 @@ export const CustomerHistoryModal: React.FC<HistoryModalProps> = ({ customer, on
     fetchDetails();
   }, [customer.id]);
 
-  const totalPending = details?.accountsReceivable?.reduce((sum: number, acc: any) => sum + acc.balance, 0) || 0;
+  const totalPending = details?.accountsReceivable?.reduce((sum: number, acc: any) => sum + Number(acc.balance || 0), 0) || 0;
   
   // Extraer todos los pagos de las cuentas por cobrar
   const payments = details?.accountsReceivable?.flatMap((acc: any) => acc.payments || []) || [];
@@ -41,8 +43,8 @@ export const CustomerHistoryModal: React.FC<HistoryModalProps> = ({ customer, on
       display: 'flex', justifyContent: 'flex-end'
     }}>
       <div className="animate-fade-in" style={{
-        backgroundColor: 'var(--bg-base)', width: '100%', maxWidth: '650px',
-        height: '100%', overflowY: 'auto', padding: '2rem',
+        backgroundColor: 'var(--bg-base)', width: '100%', maxWidth: 'min(100vw, 650px)',
+        height: '100%', overflowY: 'auto', padding: 'clamp(1rem, 3vw, 2rem)',
         boxShadow: '-4px 0 15px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column'
       }}>
         {/* Header */}
@@ -66,7 +68,7 @@ export const CustomerHistoryModal: React.FC<HistoryModalProps> = ({ customer, on
                 <CreditCard size={18} /> Cuentas Pendientes (Saldo Actual)
               </h4>
               <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                C${totalPending.toFixed(2)}
+                C${Number(totalPending).toFixed(2)}
               </p>
             </div>
 
@@ -100,18 +102,18 @@ export const CustomerHistoryModal: React.FC<HistoryModalProps> = ({ customer, on
                 }}
                 onClick={() => setActiveTab('pagos')}
               >
-                <CreditCard size={16} style={{ display: 'inline', marginRight: '5px' }}/> Historial Pagos
+                <CreditCard size={16} style={{ display: 'inline', marginRight: '5px' }}/> Historial de Pagos
               </button>
             </div>
 
-            {/* Contenido */}
+            {/* Content */}
             <div style={{ flex: 1 }}>
               {activeTab === 'facturas' && (
                 <div>
                   {details?.invoices?.length === 0 ? (
                     <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '3rem' }}>
                       <Receipt size={48} opacity={0.2} style={{ marginBottom: '1rem' }} />
-                      <p>No hay facturas emitidas.</p>
+                      <p>No hay facturas registradas.</p>
                     </div>
                   ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
@@ -127,7 +129,7 @@ export const CustomerHistoryModal: React.FC<HistoryModalProps> = ({ customer, on
                           <tr key={inv.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                             <td style={{ padding: '0.75rem 0' }}>{inv.invoiceNumber}</td>
                             <td style={{ padding: '0.75rem 0' }}>{new Date(inv.issueDate).toLocaleDateString()}</td>
-                            <td style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 'bold' }}>C${inv.totalAmount.toFixed(2)}</td>
+                            <td style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 'bold' }}>C${Number(inv.totalAmount || 0).toFixed(2)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -156,8 +158,8 @@ export const CustomerHistoryModal: React.FC<HistoryModalProps> = ({ customer, on
                         {details.accountsReceivable.map((acc: any) => (
                           <tr key={acc.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                             <td style={{ padding: '0.75rem 0' }}>Cta. #{acc.id}</td>
-                            <td style={{ padding: '0.75rem 0' }}>C${acc.totalDebt.toFixed(2)}</td>
-                            <td style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 'bold', color: '#ef4444' }}>C${acc.balance.toFixed(2)}</td>
+                            <td style={{ padding: '0.75rem 0' }}>C${Number(acc.totalDebt || 0).toFixed(2)}</td>
+                            <td style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 'bold', color: '#ef4444' }}>C${Number(acc.balance || 0).toFixed(2)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -187,7 +189,7 @@ export const CustomerHistoryModal: React.FC<HistoryModalProps> = ({ customer, on
                           <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                             <td style={{ padding: '0.75rem 0' }}>{new Date(p.paymentDate).toLocaleDateString()}</td>
                             <td style={{ padding: '0.75rem 0' }}>{p.paymentMethod}</td>
-                            <td style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 'bold', color: '#10b981' }}>C${p.amount.toFixed(2)}</td>
+                            <td style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 'bold', color: '#10b981' }}>C${Number(p.amount || 0).toFixed(2)}</td>
                           </tr>
                         ))}
                       </tbody>

@@ -9,15 +9,15 @@ const router = Router();
 router.use(authenticateToken);
 
 // Listar todas las cuentas por cobrar
-router.get('/', requirePermission(['ADMIN', 'CASHIER']), arController.getAllReceivables);
+router.get('/', requirePermission('accounts_receivable:view'), arController.getAllReceivables);
 
 // Listar por cliente
-router.get('/customer/:id', requirePermission(['ADMIN', 'CASHIER']), arController.getReceivablesByCustomer);
+router.get('/customer/:id', requirePermission('accounts_receivable:view'), arController.getReceivablesByCustomer);
 
 // Registrar abono
-router.post('/:id/payments', requirePermission(['ADMIN', 'CASHIER']), arController.registerPayment);
+router.post('/:id/payments', requirePermission('accounts_receivable:create'), arController.registerPayment);
 
 // Historial de abonos
-router.get('/:id/payments', requirePermission(['ADMIN', 'CASHIER']), arController.getPaymentHistory);
+router.get('/:id/payments', requirePermission('accounts_receivable:view'), arController.getPaymentHistory);
 
 export default router;

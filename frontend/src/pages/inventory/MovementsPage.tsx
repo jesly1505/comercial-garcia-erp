@@ -7,15 +7,16 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Search, Download, FileText, ArrowRightLeft, Plus, Edit, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import toast from 'react-hot-toast';
 import formStyles from '../../styles/forms.module.css';
 import { FormActions } from '../../components/ui/FormActions';
+import Pagination from '../../components/common/Pagination';
 
 const movementSchema = z.object({
   productId: z.string().min(1, 'Debe seleccionar un producto'),
-  movementType: z.enum(['Compra', 'Venta', 'Ajuste', 'Devolucion', 'Transferencia'], { errorMap: () => ({ message: 'Tipo inválido' }) }),
-  quantity: z.number().int().or(z.string().regex(/^-?\d+$/, 'Debe ser un número entero').transform(Number)),
+  movementType: z.enum(['Compra', 'Venta', 'Ajuste', 'Devolucion', 'Transferencia']),
+  quantity: z.coerce.number().min(1, 'La cantidad debe ser mayor a 0'),
   reason: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -28,10 +29,12 @@ const MovementsPage: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const { user } = useAuth();
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<MovementFormValues>({
-    resolver: zodResolver(movementSchema),
+    resolver: zodResolver(movementSchema) as any,
     defaultValues: {
       movementType: 'Compra'
     }
@@ -40,19 +43,23 @@ const MovementsPage: React.FC = () => {
   const fetchMovements = async () => {
     try {
       const res = await api.get('/inventory/movements');
-      setMovements(res.data);
-      setFiltered(res.data);
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setMovements(data);
+      setFiltered(data);
     } catch (err) {
       console.error('Error fetching movements', err);
+      toast.error('Error al cargar movimientos de inventario');
     }
   };
 
   const fetchProducts = async () => {
     try {
-      const res = await api.get('/products');
-      setProducts(res.data);
+      const res = await api.get('/products?all=true');
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setProducts(data);
     } catch (err) {
       console.error('Error fetching products', err);
+      toast.error('Error al cargar productos');
     }
   };
 
@@ -73,6 +80,7 @@ const MovementsPage: React.FC = () => {
         m.reason?.toLowerCase().includes(lower)
       ));
     }
+    setCurrentPage(1);
   }, [searchTerm, movements]);
 
   const onSubmit = async (data: MovementFormValues) => {
@@ -156,7 +164,7 @@ const MovementsPage: React.FC = () => {
         m.user ? `${m.user.firstName} ${m.user.lastName}` : m.userId
       ]);
     });
-    (doc as any).autoTable({
+    autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
       startY: 20,
@@ -250,14 +258,15 @@ const MovementsPage: React.FC = () => {
             </div>
 
             <FormActions 
+              isEditing={false}
               onCancel={() => { setShowForm(false); reset(); }} 
-              isSubmitting={isSubmitting} 
-              submitText="Registrar Movimiento" 
+              isLoading={isSubmitting} 
             />
           </form>
         </div>
       ) : (
-        <div className="glass-panel" style={{ overflowX: 'auto' }}>
+        <>
+          <div className="glass-panel" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
@@ -275,9 +284,11 @@ const MovementsPage: React.FC = () => {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={9} style={{ padding: '2rem', textAlign: 'center' }}>No hay movimientos registrados.</td></tr>
+                <tr><td colSpan={10} style={{ padding: '2rem', textAlign: 'center' }}>No hay movimientos registrados.</td></tr>
               ) : (
-                filtered.map(m => {
+                filtered
+                  .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                  .map(m => {
                   const color = m.stockAfter > m.stockBefore ? '#10b981' : (m.stockAfter < m.stockBefore ? '#ef4444' : 'var(--text-color)');
                   
                   return (
@@ -311,7 +322,15 @@ const MovementsPage: React.FC = () => {
               )}
             </tbody>
           </table>
-        </div>
+          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filtered.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        </>
       )}
     </div>
   );

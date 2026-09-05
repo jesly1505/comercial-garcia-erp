@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import api from '../../services/api';
+import toast from 'react-hot-toast';
+import Pagination from '../../components/common/Pagination';
 
 const CashHistoryPage: React.FC = () => {
   const [history, setHistory] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchHistory = async () => {
     try {
@@ -13,6 +17,7 @@ const CashHistoryPage: React.FC = () => {
       setHistory(res.data);
     } catch (error) {
       console.error(error);
+      toast.error('Error al cargar historial de caja');
     } finally {
       setLoading(false);
     }
@@ -78,8 +83,10 @@ const CashHistoryPage: React.FC = () => {
             ) : filteredHistory.length === 0 ? (
               <tr><td colSpan={7} style={{ padding: '2rem', textAlign: 'center' }}>No se encontraron registros de caja</td></tr>
             ) : (
-              filteredHistory.map((session) => {
-                const diff = (session.closingBalance || 0) - (session.expectedBalance || 0);
+              filteredHistory
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map((session) => {
+                const diff = Number(session.closingBalance || 0) - Number(session.expectedBalance || 0);
                 const isClosed = session.status === 'CLOSED';
                 return (
                   <tr key={session.id} style={{ borderBottom: '1px solid var(--border-glass)' }}>
@@ -88,13 +95,13 @@ const CashHistoryPage: React.FC = () => {
                     <td style={{ padding: '1rem' }}>{session.cashRegister?.name}</td>
                     <td style={{ padding: '1rem' }}>{session.user?.firstName} {session.user?.lastName}</td>
                     <td style={{ padding: '1rem', textAlign: 'right' }}>
-                      {isClosed ? `C$${session.expectedBalance?.toFixed(2)}` : '-'}
+                      {isClosed ? `C$${Number(session.expectedBalance || 0).toFixed(2)}` : '-'}
                     </td>
                     <td style={{ padding: '1rem', textAlign: 'right' }}>
-                      {isClosed ? `C$${session.closingBalance?.toFixed(2)}` : '-'}
+                      {isClosed ? `C$${Number(session.closingBalance || 0).toFixed(2)}` : '-'}
                     </td>
                     <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 'bold', color: diff < 0 ? '#ef4444' : (diff > 0 ? '#3b82f6' : 'inherit') }}>
-                      {isClosed ? `C$${diff.toFixed(2)}` : '-'}
+                      {isClosed ? `C$${Number(diff).toFixed(2)}` : '-'}
                     </td>
                   </tr>
                 );
@@ -103,6 +110,14 @@ const CashHistoryPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredHistory.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
     </div>
   );
 };

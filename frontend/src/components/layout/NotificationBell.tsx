@@ -3,6 +3,9 @@ import { Bell, Check, Info, AlertTriangle, CheckCircle, XCircle } from 'lucide-r
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+import toast from 'react-hot-toast';
+
+import api from '../../services/api';
 
 interface Notification {
   id: number;
@@ -22,9 +25,8 @@ export const NotificationBell: React.FC = () => {
   useEffect(() => {
     if (token) {
       fetchNotifications();
-      // Polling cada 30 segundos
-      const intervalId = setInterval(fetchNotifications, 30000);
-      return () => clearInterval(intervalId);
+      const interval = setInterval(fetchNotifications, 60000);
+      return () => clearInterval(interval);
     }
   }, [token]);
 
@@ -40,13 +42,8 @@ export const NotificationBell: React.FC = () => {
 
   const fetchNotifications = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/notifications', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data);
-      }
+      const response = await api.get('/notifications');
+      setNotifications(response.data);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
@@ -54,13 +51,14 @@ export const NotificationBell: React.FC = () => {
 
   const markAsRead = async (id: number | 'all') => {
     try {
-      await fetch(`http://localhost:3000/api/notifications/${id}/read`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.put(`/notifications/${id}/read`);
       fetchNotifications();
+      if (id === 'all') {
+        toast.success('Todas las notificaciones marcadas como leídas');
+      }
     } catch (error) {
       console.error('Error marking as read:', error);
+      toast.error('Error al actualizar notificaciones');
     }
   };
 

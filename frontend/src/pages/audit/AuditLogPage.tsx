@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { format } from 'date-fns';
 import { Filter, AlertCircle, RefreshCw, Search, Calendar, User } from 'lucide-react';
+import api from '../../services/api';
+import Pagination from '../../components/common/Pagination';
 import styles from './AuditLogPage.module.css';
 interface AuditLog {
   id: number;
@@ -70,17 +72,14 @@ export const AuditLogPage: React.FC = () => {
   const [dateFilter, setDateFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [users, setUsers] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem('erp_token');
-      const res = await fetch('http://localhost:3000/api/users', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data);
-      }
+      const res = await api.get('/users');
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setUsers(data);
     } catch (err) {
       console.error('Error fetching users:', err);
     }
@@ -94,7 +93,6 @@ export const AuditLogPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const token = localStorage.getItem('erp_token');
       
       const queryParams = new URLSearchParams();
       if (moduleFilter) queryParams.append('module', moduleFilter);
@@ -106,20 +104,10 @@ export const AuditLogPage: React.FC = () => {
       }
       if (searchTerm) queryParams.append('search', searchTerm);
 
-      const response = await fetch(`http://localhost:3000/api/audit?${queryParams.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Error al cargar la bitácora');
-      }
-      
-      const data = await response.json();
-      setLogs(data.data || []);
+      const response = await api.get(`/audit?${queryParams.toString()}`);
+      setLogs(response.data.data || []);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.response?.data?.error || err.message || 'Error al cargar la bitácora');
     } finally {
       setLoading(false);
     }
@@ -263,7 +251,9 @@ export const AuditLogPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => (
+                logs
+                  .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                  .map((log) => (
                   <tr key={log.id} className="hover:bg-gray-50">
                     <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">
                       <div>{format(new Date(log.createdAt), 'dd/MM/yyyy')}</div>
@@ -296,7 +286,17 @@ export const AuditLogPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          currentPage={currentPage}
+          totalItems={logs.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
     </div>
   );
 };
+
+export default AuditLogPage;

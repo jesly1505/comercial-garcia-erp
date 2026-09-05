@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ShoppingBag } from 'lucide-react';
 import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 interface SupplierHistoryModalProps {
   supplier: any;
@@ -19,6 +20,7 @@ export const SupplierHistoryModal: React.FC<SupplierHistoryModalProps> = ({ supp
         setDetails(res.data);
       } catch (err) {
         console.error('Error fetching supplier details', err);
+        toast.error('Error al cargar historial del proveedor');
       } finally {
         setLoading(false);
       }
@@ -27,7 +29,7 @@ export const SupplierHistoryModal: React.FC<SupplierHistoryModalProps> = ({ supp
   }, [supplier.id]);
 
   const purchaseOrders = details?.purchaseOrders || [];
-  const totalPurchases = purchaseOrders.reduce((sum: number, po: any) => sum + po.totalAmount, 0);
+  const totalPurchases = purchaseOrders.reduce((sum: number, po: any) => sum + Number(po.totalAmount || 0), 0);
 
   return createPortal(
     <div style={{
@@ -36,15 +38,15 @@ export const SupplierHistoryModal: React.FC<SupplierHistoryModalProps> = ({ supp
       display: 'flex', justifyContent: 'flex-end'
     }}>
       <div className="animate-fade-in" style={{
-        backgroundColor: 'var(--bg-base)', width: '100%', maxWidth: '650px',
-        height: '100%', overflowY: 'auto', padding: '2rem',
+        backgroundColor: 'var(--bg-base)', width: '100%', maxWidth: 'min(100vw, 650px)',
+        height: '100%', overflowY: 'auto', padding: 'clamp(1rem, 3vw, 2rem)',
         boxShadow: '-4px 0 15px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column'
       }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Historial de Proveedor</h2>
-            <p style={{ color: 'var(--text-muted)' }}>{supplier.name} {supplier.company ? `(${supplier.company})` : ''}</p>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Historial del Proveedor</h2>
+            <p style={{ color: 'var(--text-muted)' }}>{supplier.name}</p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <X size={24} color="var(--text-secondary)" />
@@ -60,7 +62,7 @@ export const SupplierHistoryModal: React.FC<SupplierHistoryModalProps> = ({ supp
                 <ShoppingBag size={18} /> Total Comprado (Órdenes de Compra)
               </h4>
               <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                C${totalPurchases.toFixed(2)}
+                C${Number(totalPurchases).toFixed(2)}
               </p>
             </div>
 
@@ -100,7 +102,7 @@ export const SupplierHistoryModal: React.FC<SupplierHistoryModalProps> = ({ supp
                             {po.status}
                           </span>
                         </td>
-                        <td style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 'bold' }}>C${po.totalAmount.toFixed(2)}</td>
+                        <td style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 'bold' }}>C${Number(po.totalAmount || 0).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>

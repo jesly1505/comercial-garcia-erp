@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ShoppingCart, User, Plus, Trash2, CheckCircle, Package, X, DollarSign, Printer, Download, ArrowLeft } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { ShoppingCart, User, Plus, Trash2, CheckCircle, Package, X, DollarSign, Printer, Download } from 'lucide-react';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { downloadInvoicePDF, printInvoiceTicket } from '../../utils/invoicePrinter';
 
@@ -37,20 +36,72 @@ const NewInvoicePage: React.FC = () => {
   }, []);
 
   const fetchCustomers = async () => {
-    const res = await api.get('/customers');
-    setCustomers(res.data.filter((c: any) => c.isActive));
+    try {
+      const res = await api.get('/customers');
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setCustomers(data.filter((c: any) => c.isActive));
+    } catch {
+      toast.error('Error al cargar clientes');
+    }
+  };
+
+  const handleSelectEventualCustomer = async () => {
+    // 1. Buscar si ya existe un cliente eventual registrado
+    const eventual = customers.find(c => 
+      c.documentNumber === '000-000000-0000X' || 
+      c.documentNumber === 'EVENTUAL' || 
+      (c.firstName?.toLowerCase().includes('cliente') && c.lastName?.toLowerCase().includes('eventual'))
+    );
+
+    if (eventual) {
+      setSelectedCustomer(eventual.id);
+      toast.success('Cliente Eventual seleccionado');
+      return;
+    }
+
+    // 2. Crear y seleccionar automáticamente si no existe
+    try {
+      const res = await api.post('/customers', {
+        firstName: 'Cliente',
+        lastName: 'Eventual',
+        documentNumber: '000-000000-0000X',
+        phone: '0000-0000',
+        isActive: true,
+        creditLimit: 0
+      });
+      await fetchCustomers();
+      setSelectedCustomer(res.data.id);
+      toast.success('Cliente Eventual creado y seleccionado');
+    } catch (err: any) {
+      await fetchCustomers();
+      const existing = customers.find(c => 
+        c.documentNumber === '000-000000-0000X' || 
+        (c.firstName?.toLowerCase().includes('cliente') && c.lastName?.toLowerCase().includes('eventual'))
+      );
+      if (existing) {
+        setSelectedCustomer(existing.id);
+        toast.success('Cliente Eventual seleccionado');
+      } else {
+        toast.error('No se pudo seleccionar el cliente eventual');
+      }
+    }
   };
 
   const fetchProducts = async () => {
-    const res = await api.get('/products');
-    setProducts(res.data.filter((p: any) => p.isActive && p.currentStock > 0));
+    try {
+      const res = await api.get('/products?all=true');
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setProducts(data.filter((p: any) => p.isActive && p.currentStock > 0));
+    } catch {
+      toast.error('Error al cargar productos');
+    }
   };
 
   const addToCart = (product: any) => {
     const existing = cart.find(item => item.productId === product.id);
     if (existing) {
       if (existing.quantity >= product.currentStock) {
-        alert('No hay suficiente stock');
+        toast.error('No hay suficiente stock disponible');
         return;
       }
       setCart(cart.map(item => 
@@ -62,17 +113,19 @@ const NewInvoicePage: React.FC = () => {
       setCart([...cart, { 
         productId: product.id, 
         name: product.name, 
-        price: product.salePrice, 
+        price: Number(product.salePrice || 0), 
         quantity: 1,
         maxStock: product.currentStock
       }]);
+      toast.success(`${product.name} agregado al carrito`, { duration: 1500 });
     }
   };
 
   const updateQuantity = (productId: number, qty: number) => {
     const item = cart.find(c => c.productId === productId);
+    if (!item) return;
     if (qty > item.maxStock) {
-      alert(`Solo hay ${item.maxStock} unidades en stock.`);
+      toast.error(`Solo hay ${item.maxStock} unidades en stock.`);
       return;
     }
     if (qty <= 0) {
@@ -91,8 +144,8 @@ const NewInvoicePage: React.FC = () => {
   const total = subtotal + taxAmount - discount;
 
   const handleCheckout = () => {
-    if (!selectedCustomer) return alert('Seleccione un cliente');
-    if (cart.length === 0) return alert('El carrito está vacío');
+    if (!selectedCustomer) return toast.error('Seleccione un cliente para continuar');
+    if (cart.length === 0) return toast.error('El carrito está vacío');
     setShowCheckoutModal(true);
     setPaymentMethod('EFECTIVO');
     setAmountPaid(total);
@@ -102,7 +155,7 @@ const NewInvoicePage: React.FC = () => {
     if (paymentMethod === 'EFECTIVO') {
       const paid = Number(amountPaid) || 0;
       if (paid < total) {
-        return alert('El monto recibido es menor al total a pagar.');
+        return toast.error('El monto recibido es menor al total a pagar.');
       }
     }
 
@@ -131,15 +184,16 @@ const NewInvoicePage: React.FC = () => {
       setApplyTax(false);
       setAmountPaid('');
       fetchProducts(); // Refrescar stock
+      toast.success('¡Venta facturada exitosamente!');
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Error al procesar la venta');
+      toast.error(error.response?.data?.error || 'Error al procesar la venta');
     }
   };
 
   const handleQuickCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCustomer.firstName || !newCustomer.lastName || !newCustomer.documentNumber) {
-      alert('Nombre, Apellido y Cédula son obligatorios');
+      toast.error('Nombre, Apellido y Cédula son obligatorios');
       return;
     }
     try {
@@ -148,9 +202,9 @@ const NewInvoicePage: React.FC = () => {
       setSelectedCustomer(res.data.id);
       setShowNewCustomerModal(false);
       setNewCustomer({ firstName: '', lastName: '', documentNumber: '', phone: '' });
-      alert('Cliente creado exitosamente');
+      toast.success('Cliente creado exitosamente');
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Error al crear cliente');
+      toast.error(err.response?.data?.error || 'Error al crear cliente');
     }
   };
 
@@ -202,7 +256,27 @@ const NewInvoicePage: React.FC = () => {
         </h2>
 
         <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Cliente</label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Cliente</label>
+            <button
+              type="button"
+              onClick={handleSelectEventualCustomer}
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '3px 8px',
+                borderRadius: '6px',
+                border: '1px solid rgba(234, 179, 8, 0.4)',
+                backgroundColor: 'rgba(234, 179, 8, 0.12)',
+                color: '#d97706',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              title="Seleccionar o crear rápidamente un Cliente Eventual"
+            >
+              Cliente Eventual
+            </button>
+          </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <select 
               value={selectedCustomer} 
@@ -211,7 +285,9 @@ const NewInvoicePage: React.FC = () => {
             >
               <option value="">Seleccione un cliente...</option>
               {customers.map(c => (
-                <option key={c.id} value={c.id}>{c.firstName} {c.lastName} ({c.documentNumber})</option>
+                <option key={c.id} value={c.id}>
+                  {c.firstName} {c.lastName} ({c.documentNumber})
+                </option>
               ))}
             </select>
             <button 
@@ -224,13 +300,28 @@ const NewInvoicePage: React.FC = () => {
             </button>
           </div>
           
-          {/* Advertencia de límite de crédito */}
+          {/* Advertencia o Info de Cliente */}
           {selectedCustomer && customers.find(c => c.id === selectedCustomer) && (
             <div style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}>
               {(() => {
                 const customer = customers.find(c => c.id === selectedCustomer);
-                const limit = customer.creditLimit || 0;
-                // Ideally pendingBalance would be populated here if we fetch it, but it's empty for now.
+                const isEventual = customer?.documentNumber === '000-000000-0000X' || customer?.lastName === 'Eventual';
+                if (isEventual) {
+                  return (
+                    <span style={{ 
+                      display: 'inline-block',
+                      color: '#d97706', 
+                      background: 'rgba(234, 179, 8, 0.12)', 
+                      padding: '2px 8px', 
+                      borderRadius: '4px', 
+                      fontWeight: 600,
+                      fontSize: '0.75rem' 
+                    }}>
+                      Venta a Consumidor Final / Eventual
+                    </span>
+                  );
+                }
+                const limit = Number(customer?.creditLimit || 0);
                 return limit > 0 ? (
                   <span style={{ color: 'var(--text-secondary)' }}>Límite de crédito: C${limit.toFixed(2)}</span>
                 ) : (
@@ -323,11 +414,32 @@ const NewInvoicePage: React.FC = () => {
           backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
-          <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+          <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: 'min(95vw, 440px)', maxHeight: '90vh', overflowY: 'auto', padding: 'clamp(1rem, 3vw, 2rem)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
               <h3 style={{ margin: 0 }}>Nuevo Cliente</h3>
               <button onClick={() => setShowNewCustomerModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
                 <X size={20} color="var(--text-secondary)" />
+              </button>
+            </div>
+            
+            <div style={{ marginBottom: '1.25rem' }}>
+              <button
+                type="button"
+                onClick={() => setNewCustomer({ firstName: 'Cliente', lastName: 'Eventual', documentNumber: '000-000000-0000X', phone: '0000-0000' })}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  borderRadius: '8px',
+                  border: '1px dashed #d97706',
+                  backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                  color: '#d97706',
+                  cursor: 'pointer',
+                  textAlign: 'center'
+                }}
+              >
+                Autocompletar como Cliente Eventual
               </button>
             </div>
             <form onSubmit={handleQuickCustomer}>
@@ -363,7 +475,7 @@ const NewInvoicePage: React.FC = () => {
           backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
-          <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '500px', padding: '2rem' }}>
+          <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: 'min(95vw, 520px)', maxHeight: '90vh', overflowY: 'auto', padding: 'clamp(1rem, 3vw, 2rem)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
               <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <DollarSign size={24} color="#10b981" /> Completar Venta

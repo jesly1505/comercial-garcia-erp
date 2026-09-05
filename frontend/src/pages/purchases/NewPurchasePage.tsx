@@ -25,10 +25,12 @@ const NewPurchasePage: React.FC = () => {
       try {
         const [supRes, prodRes] = await Promise.all([
           api.get('/suppliers'),
-          api.get('/products')
+          api.get('/products?all=true')
         ]);
-        setSuppliers(supRes.data);
-        setProducts(prodRes.data);
+        const supData = Array.isArray(supRes.data) ? supRes.data : (supRes.data?.data || []);
+        const prodData = Array.isArray(prodRes.data) ? prodRes.data : (prodRes.data?.data || []);
+        setSuppliers(supData);
+        setProducts(prodData);
       } catch (err) {
         toast.error('Error al cargar datos');
       }
@@ -220,12 +222,12 @@ const NewPurchasePage: React.FC = () => {
                     <div>
                       <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{item.name}</div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        {item.quantity} x C$ {item.unitCost.toFixed(2)}
+                        {item.quantity} x C$ {Number(item.unitCost || 0).toFixed(2)}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                       <div style={{ fontWeight: 'bold', color: 'var(--primary-color)' }}>
-                        C$ {item.subtotal.toFixed(2)}
+                        C$ {Number(item.subtotal || 0).toFixed(2)}
                       </div>
                       <button onClick={() => handleRemoveProduct(index)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.25rem' }}>
                         <Trash2 size={16} />
@@ -240,7 +242,7 @@ const NewPurchasePage: React.FC = () => {
           <div style={{ borderTop: '2px solid var(--border-color)', paddingTop: '1rem', marginTop: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1.5rem' }}>
               <span>Total:</span>
-              <span>C$ {totalAmount.toFixed(2)}</span>
+              <span>C$ {Number(totalAmount || 0).toFixed(2)}</span>
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
